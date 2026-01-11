@@ -1,0 +1,14 @@
+<h2>Chats</h2>
+
+<ul>
+  <% @chats.each do |chat| %>
+    <li>
+      <a href="/chats/<%= chat.id %>">
+        <%= chat.title %>
+      </a>
+    </li>
+  <% end %>
+</ul>
+
+<a href="/chats/new">+ New Chat</a>
+

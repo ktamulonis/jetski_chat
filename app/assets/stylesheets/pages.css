@@ -1,0 +1,16 @@
+.home-page {
+  --primary-color: hsl(240, 63%, 45%);
+  --secondary-color: hsl(202, 66%, 40%);
+
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(to bottom, var(--primary-color), var(--secondary-color));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
+  .header {
+    font-size: 64px;
+    color: hsl(from var(--primary-color) h s calc(l + 50))
+  }
+}

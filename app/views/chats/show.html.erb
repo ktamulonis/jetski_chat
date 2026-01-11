@@ -1,0 +1,23 @@
+<h2><%= @chat.title %></h2>
+
+<div class="messages">
+  <% @messages.each do |message| %>
+    <div class="message <%= message.role %>">
+      <strong><%= message.role %>:</strong>
+      <p><%= message.content %></p>
+    </div>
+  <% end %>
+</div>
+
+<form action="/messages" method="post">
+  <input type="hidden" name="chat_id" value="<%= @chat.id %>" />
+
+  <textarea
+    name="content"
+    placeholder="Type your message..."
+    required
+  ></textarea>
+
+  <button type="submit">Send</button>
+</form>
+
