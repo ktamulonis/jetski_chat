@@ -1,23 +1,56 @@
-<h2><%= @chat.title %></h2>
+<div class="chats-card">
+  <% @chats = Chat.all if @chats.nil? %>
+  <aside class="left-panel">
+    <h2>Chats</h2>
+    <div class="chat-list">
+      <div class="new-chat">
+        <form action="/chats" method="post">
+          <button type="submit" class="new-chat-btn">+ New Chat</button>
+        </form>
+      </div>
 
-<div class="messages">
-  <% @messages.each do |message| %>
-    <div class="message <%= message.role %>">
-      <strong><%= message.role %>:</strong>
-      <p><%= message.content %></p>
+      <ul>
+        <% if Array(@chats).empty? %>
+          <li class="muted">No chats yet</li>
+        <% end %>
+        <% Array(@chats).each do |c| %>
+          <li>
+            <a href="/chats/<%= c.id %>" class="<%= 'active' if c.id == @chat.id %>">
+              <%= (c.title && c.title.strip.size > 0) ? c.title : "Untitled" %>
+            </a>
+          </li>
+        <% end %>
+      </ul>
     </div>
-  <% end %>
+  </aside>
+
+  <main class="right-panel">
+    <h2><%= @chat.title %></h2>
+
+    <div class="messages">
+      <% Array(@messages).each do |message| %>
+        <div class="message <%= message.role %>">
+          <strong><%= message.role %>:</strong>
+          <p><%= message.content %></p>
+        </div>
+      <% end %>
+    </div>
+
+    <form class="message-form" action="/messages" method="post">
+      <input type="hidden" name="chat_id" value="<%= @chat.id %>" />
+
+      <textarea
+        name="content"
+        placeholder="Type your message..."
+        required
+      ></textarea>
+
+      <button type="submit" class="send-btn" aria-label="Send">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M2 21L23 12L2 3L2 10L17 12L2 14L2 21Z" fill="currentColor"/>
+        </svg>
+      </button>
+    </form>
+  </main>
 </div>
-
-<form action="/messages" method="post">
-  <input type="hidden" name="chat_id" value="<%= @chat.id %>" />
-
-  <textarea
-    name="content"
-    placeholder="Type your message..."
-    required
-  ></textarea>
-
-  <button type="submit">Send</button>
-</form>
 

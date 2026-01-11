@@ -1,14 +1,17 @@
-<h2>Chats</h2>
+<div class="chats-page">
+  <h2>Chats</h2>
 
-<ul>
-  <% @chats.each do |chat| %>
-    <li>
-      <a href="/chats/<%= chat.id %>">
-        <%= chat.title %>
-      </a>
-    </li>
-  <% end %>
-</ul>
+  <ul>
+    <% @chats.each do |chat| %>
+      <li>
+        <a href="/chats/<%= chat.id %>">
+          <%= chat.title %>
+        </a>
+      </li>
+    <% end %>
+  </ul>
 
-<a href="/chats/new">+ New Chat</a>
-
+  <form action="/chats" method="post" style="display:inline">
+    <button type="submit" class="new-chat-btn">+ New Chat</button>
+  </form>
+</div>
