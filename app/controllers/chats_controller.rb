@@ -1,6 +1,6 @@
 class ChatsController < Jetski::BaseController
+  route :index, root: true
   def index
-    @root = true
     @chats = Chat.all
   end
 
