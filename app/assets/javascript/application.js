@@ -4,6 +4,48 @@ const streamUrl = "/stream"
 console.log("🌊 Opening SSE connection:", streamUrl)
 
 const es = new EventSource(streamUrl)
+const messagesEl = document.getElementById("jetski-messages")
+const scrollButton = document.getElementById("scroll-to-bottom")
+const scrollBottomThreshold = 24
+let autoScrollEnabled = true
+let programmaticScroll = false
+
+const isAtBottom = () => {
+  if (!messagesEl) return true
+  const distance =
+    messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight
+  return distance <= scrollBottomThreshold
+}
+
+const updateScrollButton = () => {
+  if (!messagesEl || !scrollButton) return
+  if (isAtBottom()) {
+    scrollButton.classList.remove("visible")
+  } else {
+    scrollButton.classList.add("visible")
+  }
+}
+
+const scrollToBottom = (behavior = "auto") => {
+  if (!messagesEl) return
+  programmaticScroll = true
+  messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior })
+  window.setTimeout(() => {
+    programmaticScroll = false
+    updateScrollButton()
+  }, 80)
+}
+
+const handleContentUpdate = () => {
+  if (!messagesEl) return
+  window.requestAnimationFrame(() => {
+    if (autoScrollEnabled) {
+      scrollToBottom()
+    } else {
+      updateScrollButton()
+    }
+  })
+}
 
 es.onopen = () => {
   console.log("🌊 SSE OPEN ✅", streamUrl)
@@ -38,6 +80,7 @@ es.onmessage = (event) => {
     if (!target) return
 
     target.textContent += payload.delta
+    handleContentUpdate()
     return
   }
 
@@ -54,6 +97,31 @@ es.onmessage = (event) => {
       const target = messageEl.querySelector(`[data-jetski-attr="${attr}"]`)
       if (target) target.textContent = value
     }
+
+    handleContentUpdate()
   }
 }
 
+if (messagesEl) {
+  messagesEl.addEventListener("scroll", () => {
+    if (programmaticScroll) {
+      updateScrollButton()
+      return
+    }
+
+    autoScrollEnabled = isAtBottom()
+    updateScrollButton()
+  })
+}
+
+if (scrollButton) {
+  scrollButton.addEventListener("click", () => {
+    autoScrollEnabled = true
+    scrollToBottom("smooth")
+  })
+}
+
+if (messagesEl) {
+  scrollToBottom()
+  updateScrollButton()
+}
