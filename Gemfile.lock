@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/ktamulonis/jetski.git
-  revision: 4c4c96a17e25127e5da785cdd4a7b9148a733b7c
-  branch: kinship-integration
+  revision: b46953f7fc001df4b8b50c915fc91bd289efbadf
+  branch: stream-kinship
   specs:
     jetski (0.4.9)
       erb (~> 5.1.2)
