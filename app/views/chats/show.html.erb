@@ -1,7 +1,9 @@
 <div class="chats-card">
   <% @chats = Chat.all if @chats.nil? %>
+
   <aside class="left-panel">
     <h2>Chats</h2>
+
     <div class="chat-list">
       <div class="new-chat">
         <form action="/chats" method="post">
@@ -13,9 +15,13 @@
         <% if Array(@chats).empty? %>
           <li class="muted">No chats yet</li>
         <% end %>
+
         <% Array(@chats).each do |c| %>
           <li>
-            <a href="/chats/<%= c.id %>" class="<%= 'active' if c.id == @chat.id %>">
+            <a
+              href="/chats/<%= c.id %>"
+              class="<%= 'active' if c.id == @chat.id %>"
+            >
               <%= (c.title && c.title.strip.size > 0) ? c.title : "Untitled" %>
             </a>
           </li>
@@ -27,15 +33,28 @@
   <main class="right-panel">
     <h2><%= @chat.title %></h2>
 
-    <div class="messages">
+    <!-- ========================================================= -->
+    <!-- Messages -->
+    <!-- ========================================================= -->
+    <div class="messages" id="jetski-messages">
       <% Array(@messages).each do |message| %>
-        <div class="message <%= message.role %>">
+        <div
+          class="message <%= message.role %>"
+          data-jetski-model="Message"
+          data-jetski-id="<%= message.id %>"
+        >
           <strong><%= message.role %>:</strong>
-          <p><%= message.content %></p>
+
+          <p data-jetski-attr="content">
+            <%= message.content.to_s %>
+          </p>
         </div>
       <% end %>
     </div>
 
+    <!-- ========================================================= -->
+    <!-- Message form -->
+    <!-- ========================================================= -->
     <form class="message-form" action="/messages" method="post">
       <input type="hidden" name="chat_id" value="<%= @chat.id %>" />
 
@@ -46,8 +65,18 @@
       ></textarea>
 
       <button type="submit" class="send-btn" aria-label="Send">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M2 21L23 12L2 3L2 10L17 12L2 14L2 21Z" fill="currentColor"/>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M2 21L23 12L2 3L2 10L17 12L2 14L2 21Z"
+            fill="currentColor"
+          />
         </svg>
       </button>
     </form>
