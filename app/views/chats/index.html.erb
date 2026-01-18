@@ -1,17 +1,148 @@
-<div class="chats-page">
-  <h2>Chats</h2>
+<div class="chats-card chats-index sidebar-collapsed" data-sidebar-container>
+  <button
+    type="button"
+    class="sidebar-toggle"
+    aria-label="Toggle sidebar"
+    aria-expanded="false"
+    data-sidebar-toggle
+  >
+    <span class="icon-open" aria-hidden="true">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M4 6H20M4 12H20M4 18H20"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      </svg>
+    </span>
+    <span class="icon-close" aria-hidden="true">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M6 6L18 18M6 18L18 6"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      </svg>
+    </span>
+  </button>
+  <aside class="left-panel">
+    <h2>Chats</h2>
 
-  <ul>
-    <% @chats.each do |chat| %>
-      <li>
-        <a href="/chats/<%= chat.id %>">
-          <%= chat.title %>
-        </a>
-      </li>
-    <% end %>
-  </ul>
+    <div class="chat-list">
+      <div class="new-chat">
+        <form action="/chats" method="post">
+          <button type="submit" class="new-chat-btn">+ New Chat</button>
+        </form>
+      </div>
+      <% if Array(@chats).any? %>
+        <div class="delete-all">
+          <form action="/chats-delete-all" method="post">
+            <button type="submit" class="delete-all-btn">Delete All</button>
+          </form>
+        </div>
+      <% end %>
 
-  <form action="/chats" method="post" style="display:inline">
-    <button type="submit" class="new-chat-btn">+ New Chat</button>
-  </form>
+      <ul>
+        <% if Array(@chats).empty? %>
+          <li class="muted">No chats yet</li>
+        <% end %>
+
+        <% Array(@chats).each do |chat| %>
+          <li>
+            <div class="chat-row">
+              <a href="/chats/<%= chat.id %>">
+                <%= (chat.title && chat.title.strip.size > 0) ? chat.title : "Untitled" %>
+              </a>
+              <form action="/chat-delete" method="post">
+                <input type="hidden" name="chat_id" value="<%= chat.id %>" />
+                <button
+                  type="submit"
+                  class="delete-chat-btn"
+                  aria-label="Delete chat"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M6 7H18M9 7V5H15V7M10 11V17M14 11V17M7 7L8 19H16L17 7"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+              </form>
+            </div>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="right-panel landing-panel">
+    <div class="welcome-panel" data-default-placeholder="Start a new chat">
+      <script type="application/json" data-welcome-messages>
+        <%= @welcome_messages.to_json %>
+      </script>
+      <div class="welcome-pill" data-welcome-pill><%= @welcome_message %></div>
+      <div class="welcome-controls">
+        <button type="button" class="welcome-control" data-next-prompt>Next</button>
+        <button type="button" class="welcome-control is-ghost" data-clear-prompt>X</button>
+      </div>
+
+      <form class="welcome-form" action="/chats" method="post">
+        <input
+          type="hidden"
+          name="welcome_message"
+          value="<%= @welcome_message %>"
+          data-welcome-input
+        />
+        <input
+          type="text"
+          name="content"
+          placeholder="<%= @welcome_message %>"
+          aria-label="Start a new chat"
+          autocomplete="off"
+          autofocus
+          required
+        />
+
+        <button type="submit" class="send-btn" aria-label="Start chat">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M2 21L23 12L2 3L2 10L17 12L2 14L2 21Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      </form>
+    </div>
+  </main>
 </div>
