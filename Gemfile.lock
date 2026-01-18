@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/ktamulonis/jetski.git
-  revision: b46953f7fc001df4b8b50c915fc91bd289efbadf
+  revision: 56db651117834b7410820b455df64feac2fb17be
   branch: main
   specs:
     jetski (0.4.9)

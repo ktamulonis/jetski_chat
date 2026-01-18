@@ -1,5 +1,46 @@
-<div class="chats-card">
+<div class="chats-card chats-show sidebar-collapsed" data-sidebar-container>
   <% @chats = Chat.all if @chats.nil? %>
+
+  <button
+    type="button"
+    class="sidebar-toggle"
+    aria-label="Toggle sidebar"
+    aria-expanded="false"
+    data-sidebar-toggle
+  >
+    <span class="icon-open" aria-hidden="true">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M4 6H20M4 12H20M4 18H20"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      </svg>
+    </span>
+    <span class="icon-close" aria-hidden="true">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M6 6L18 18M6 18L18 6"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      </svg>
+    </span>
+  </button>
 
   <aside class="left-panel">
     <h2>Chats</h2>
@@ -10,6 +51,13 @@
           <button type="submit" class="new-chat-btn">+ New Chat</button>
         </form>
       </div>
+      <% if Array(@chats).any? %>
+        <div class="delete-all">
+          <form action="/chats-delete-all" method="post">
+            <button type="submit" class="delete-all-btn">Delete All</button>
+          </form>
+        </div>
+      <% end %>
 
       <ul>
         <% if Array(@chats).empty? %>
@@ -18,12 +66,39 @@
 
         <% Array(@chats).each do |c| %>
           <li>
-            <a
-              href="/chats/<%= c.id %>"
-              class="<%= 'active' if c.id == @chat.id %>"
-            >
-              <%= (c.title && c.title.strip.size > 0) ? c.title : "Untitled" %>
-            </a>
+            <div class="chat-row">
+              <a
+                href="/chats/<%= c.id %>"
+                class="<%= 'active' if c.id == @chat.id %>"
+              >
+                <%= (c.title && c.title.strip.size > 0) ? c.title : "Untitled" %>
+              </a>
+              <form action="/chat-delete" method="post">
+                <input type="hidden" name="chat_id" value="<%= c.id %>" />
+                <button
+                  type="submit"
+                  class="delete-chat-btn"
+                  aria-label="Delete chat"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M6 7H18M9 7V5H15V7M10 11V17M14 11V17M7 7L8 19H16L17 7"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+              </form>
+            </div>
           </li>
         <% end %>
       </ul>
