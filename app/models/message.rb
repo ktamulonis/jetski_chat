@@ -75,8 +75,10 @@ class Message < Jetski::Model
 
     res = Net::HTTP.start(uri.host, uri.port) { |http| http.request(req) }
     payload = JSON.parse(res.body) rescue {}
-    title = payload.dig("message", "content").to_s.strip
+    raw_title = payload.dig("message", "content") || payload["response"]
+    title = raw_title.to_s.strip
     title = title.gsub(/\s+/, " ").gsub(/\A["'`]+|["'`]+\z/, "")
+    title = fallback_title(user_messages) if title == ""
     return if title == "" || title.length > 80
 
     chat = Chat.find(chat_id)
@@ -100,5 +102,16 @@ class Message < Jetski::Model
     return false if all_small_talk && user_length < TITLE_MIN_USER_CHARS
 
     true
+  end
+
+  def self.fallback_title(user_messages)
+    first = user_messages.first&.content.to_s.strip
+    return "" if first == ""
+
+    first = first.gsub(/\s+/, " ")
+    if first.length > 60
+      first = "#{first[0, 57]}..."
+    end
+    first
   end
 end
