@@ -106,7 +106,17 @@
   </aside>
 
   <main class="right-panel">
-    <h2><%= @chat.title %></h2>
+    <div class="chat-header">
+      <h2><%= @chat.title %></h2>
+      <button
+        type="button"
+        class="image-toggle"
+        data-image-toggle
+        aria-pressed="false"
+      >
+        Image: Off
+      </button>
+    </div>
 
     <!-- ========================================================= -->
     <!-- Messages -->
@@ -158,6 +168,12 @@
     <!-- ========================================================= -->
     <form class="message-form" action="/messages" method="post">
       <input type="hidden" name="chat_id" value="<%= @chat.id %>" />
+      <input
+        type="hidden"
+        name="image_mode"
+        value="0"
+        data-image-mode-input
+      />
 
       <textarea
         name="content"

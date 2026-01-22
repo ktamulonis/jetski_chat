@@ -8,7 +8,11 @@ class MessagesController < Jetski::BaseController
       content: params[:content]
     )
 
-    Thread.new { Message.call_ollama(chat.id) }
+    if params[:image_mode].to_s == "1"
+      Thread.new { Message.call_ollama_image(chat.id, params[:content].to_s) }
+    else
+      Thread.new { Message.call_ollama(chat.id) }
+    end
     Thread.new { Message.generate_title(chat.id) }
 
     redirect_to "/chats/#{chat.id}"

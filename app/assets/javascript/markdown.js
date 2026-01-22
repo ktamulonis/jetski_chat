@@ -9,8 +9,17 @@ window.JetskiChat.markdown = (() => {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;")
 
+  const formatImages = (text) =>
+    text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+      const src = url.trim()
+      const allowed = /^(data:image\/|https?:\/\/|\/)/i
+      if (!allowed.test(src)) return match
+      return `<img src="${src}" alt="${alt}">`
+    })
+
   const applyInlineFormatting = (text) => {
-    let formatted = text.replace(/`([^`]+)`/g, "<code>$1</code>")
+    let formatted = formatImages(text)
+    formatted = formatted.replace(/`([^`]+)`/g, "<code>$1</code>")
     formatted = formatted.replace(/(\*\*|__)(.*?)\1/g, "<strong>$2</strong>")
     formatted = formatted.replace(/(\*|_)([^*_]+)\1/g, "<em>$2</em>")
     return formatted
@@ -127,9 +136,26 @@ window.JetskiChat.markdown = (() => {
   const renderMessageContent = (target, rawText) => {
     if (!target) return
     const safeText = rawText == null ? "" : String(rawText)
-    target.dataset.raw = safeText
+    target.__rawContent = safeText
+    const imageMatch = safeText.match(/!\[[^\]]*\]\((data:image\/[^)]+)\)/)
+    if (imageMatch) {
+      const altMatch = safeText.match(/!\[([^\]]*)\]/)
+      const altText = altMatch ? altMatch[1] : "Generated image"
+      target.innerHTML = `<img src="${imageMatch[1]}" alt="${escapeHtml(altText)}">`
+      return
+    }
+    if (safeText.length <= 4000) {
+      target.dataset.raw = safeText
+    } else {
+      delete target.dataset.raw
+    }
     target.innerHTML = renderMarkdown(safeText)
   }
 
-  return { renderMarkdown, renderMessageContent }
+  const getRawContent = (target) => {
+    if (!target) return ""
+    return target.__rawContent || target.dataset.raw || ""
+  }
+
+  return { renderMarkdown, renderMessageContent, getRawContent }
 })()
