@@ -18,6 +18,11 @@ window.JetskiChat.messages = (() => {
     }
   }
 
+  const getRawContent = (target) =>
+    window.JetskiChat.markdown?.getRawContent?.(target) ||
+    target?.dataset?.raw ||
+    ""
+
   const isAtBottom = () => {
     if (!messagesEl) return true
     const distance =
@@ -140,7 +145,11 @@ window.JetskiChat.messages = (() => {
         return
       }
 
-      if (payload.type === "model_append") {
+      const eventType =
+        payload.type ||
+        (payload.changes ? "model_update" : payload.delta ? "model_append" : "")
+
+      if (eventType === "model_append") {
         const messageEl = document.querySelector(
           `[data-jetski-model="${payload.model}"][data-jetski-id="${payload.id}"]`
         )
@@ -151,13 +160,13 @@ window.JetskiChat.messages = (() => {
         )
         if (!target) return
 
-        const nextValue = `${target.dataset.raw || ""}${payload.delta || ""}`
+        const nextValue = `${getRawContent(target)}${payload.delta || ""}`
         renderMessageContent(target, nextValue)
         handleContentUpdate()
         return
       }
 
-      if (payload.type === "model_update") {
+      if (eventType === "model_update") {
         const messageEl = document.querySelector(
           `[data-jetski-model="${payload.model}"][data-jetski-id="${payload.id}"]`
         )
@@ -178,6 +187,25 @@ window.JetskiChat.messages = (() => {
     if (!messagesEl) return
 
     scrollButton = document.getElementById("scroll-to-bottom")
+
+    const imageToggle = document.querySelector("[data-image-toggle]")
+    const imageModeInput = document.querySelector("[data-image-mode-input]")
+
+    if (imageToggle && imageModeInput) {
+      const updateToggle = (enabled) => {
+        imageToggle.classList.toggle("is-active", enabled)
+        imageToggle.setAttribute("aria-pressed", enabled.toString())
+        imageToggle.textContent = enabled ? "Image: On" : "Image: Off"
+        imageModeInput.value = enabled ? "1" : "0"
+      }
+
+      updateToggle(false)
+
+      imageToggle.addEventListener("click", () => {
+        const enabled = imageModeInput.value !== "1"
+        updateToggle(enabled)
+      })
+    }
 
     wireScroll()
     messagesEl.addEventListener("click", handleCopyClick)

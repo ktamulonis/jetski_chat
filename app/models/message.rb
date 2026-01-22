@@ -46,6 +46,135 @@ class Message < Jetski::Model
     Thread.new { generate_title(chat.id) }
   end
 
+  def self.call_ollama_image(chat_id, prompt)
+    chat = Chat.find(chat_id)
+    uri = URI("http://localhost:11434/api/generate")
+
+    assistant = Message.create(
+      chat_id: chat.id,
+      role: "assistant",
+      content: "Generating image..."
+    )
+    warn "Ollama image start chat=#{chat.id} prompt=#{prompt.to_s[0, 120].inspect}"
+
+    req = Net::HTTP::Post.new(uri)
+    req["Content-Type"] = "application/json"
+    req.body = {
+      model: "jmorgan/z-image-turbo:fp8",
+#      model: "jmorgan/z-image-turbo:latest",
+      prompt: prompt.to_s,
+      stream: false
+    }.to_json
+
+    payload = {}
+    image_b64 = ""
+    last_progress = ""
+    buffer = +""
+    line_count = 0
+    raw_body = nil
+
+    parse_objects = lambda do |text|
+      objects = []
+      text.each_line do |line|
+        line = line.strip
+        next if line == ""
+        begin
+          objects << JSON.parse(line)
+          next
+        rescue JSON::ParserError
+        end
+
+        parts = line.split(/}\s*{/)
+        next if parts.length <= 1
+        parts.each_with_index do |part, index|
+          json_str = part
+          json_str = "{#{json_str}" unless json_str.start_with?("{")
+          json_str = "#{json_str}}" unless json_str.end_with?("}")
+          begin
+            objects << JSON.parse(json_str)
+          rescue JSON::ParserError
+            next
+          end
+        end
+      end
+      objects
+    end
+
+    apply_payload = lambda do |json|
+      payload = json
+      image_b64 = json["images"]&.first.to_s if image_b64 == "" && json["images"]&.first
+      image_b64 = json["image"].to_s if image_b64 == "" && json["image"]
+      image_b64 = json["response"].to_s if image_b64 == "" && json["response"]
+      completed = json["completed"]
+      total = json["total"]
+      if completed && total
+        progress = "Generating image... (#{completed}/#{total})"
+        unless progress == last_progress
+          last_progress = progress
+          assistant.patch(content: progress)
+        end
+      end
+    end
+
+    Net::HTTP.start(uri.host, uri.port) do |http|
+      http.request(req) do |res|
+        warn "Ollama image response status=#{res.code} content_type=#{res['Content-Type']}"
+        res.read_body do |chunk|
+          next if chunk.strip.empty?
+          buffer << chunk
+          lines = buffer.split("\n")
+          buffer = lines.pop || ""
+          lines.each do |line|
+            parse_objects.call(line).each do |json|
+              line_count += 1
+              apply_payload.call(json)
+            end
+          end
+        end
+
+        raw_body = res.body
+      end
+    end
+
+    unless buffer.strip.empty?
+      parse_objects.call(buffer).each do |json|
+        line_count += 1
+        apply_payload.call(json)
+      end
+    end
+
+    if line_count == 0 && raw_body.to_s.strip != ""
+      parse_objects.call(raw_body.to_s).each do |json|
+        line_count += 1
+        apply_payload.call(json)
+      end
+    end
+
+    image_b64 = image_b64.to_s.strip
+
+    if image_b64 == ""
+      warn "Ollama image generation missing image payload keys: #{payload.keys.inspect}"
+      warn "Ollama image generation last payload: #{payload.inspect[0, 600]}"
+      warn "Ollama image generation lines processed: #{line_count}"
+      warn "Ollama image generation raw body length: #{raw_body.to_s.length}"
+      warn "Ollama image generation raw body preview: #{raw_body.to_s[0, 400].inspect}"
+      assistant.patch(content: "Image generation failed.")
+      return
+    end
+
+    data_url = if image_b64.start_with?("data:image")
+      image_b64
+    else
+      "data:image/png;base64,#{image_b64}"
+    end
+
+    warn "Ollama image complete chat=#{chat.id} bytes=#{image_b64.length}"
+    assistant.patch(content: "![Generated image](#{data_url})")
+  rescue StandardError
+    warn "Ollama image generation error: #{$!.class}: #{$!.message}"
+    assistant.patch(content: "Image generation failed.")
+  end
+
   def self.generate_title(chat_id)
     chat = Chat.find(chat_id)
     return unless DEFAULT_CHAT_TITLES.include?(chat.title.to_s.strip)

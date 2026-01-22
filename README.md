@@ -52,8 +52,15 @@ This app is built to use Ollama running locally with the `llama3.2` model.
 Download Ollama here: https://ollama.com/download
 In another terminal, make sure Ollama is installed and the model is available:
 ```sh
-ollama pull llama3.2
 ollama run llama3.2
 ```
 
 If Ollama is already running, you can skip the commands above and just start the app.
+
+## Image Generation (Ollama + z-image-turbo)
+If you want to generate images from the chat UI, install the fp8 image model:
+```sh
+ollama run jmorgan/z-image-turbo:fp8
+```
+
+The app uses the image model when you toggle image mode in the chat header.
