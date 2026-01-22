@@ -60,7 +60,8 @@ class Message < Jetski::Model
     req = Net::HTTP::Post.new(uri)
     req["Content-Type"] = "application/json"
     req.body = {
-      model: "jmorgan/z-image-turbo:latest",
+      model: "jmorgan/z-image-turbo:fp8",
+#      model: "jmorgan/z-image-turbo:latest",
       prompt: prompt.to_s,
       stream: false
     }.to_json
