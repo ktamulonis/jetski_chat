@@ -121,9 +121,9 @@
           >
             <strong><%= message.role %>:</strong>
 
-            <p data-jetski-attr="content">
-              <%= message.content.to_s %>
-            </p>
+            <div class="message-content" data-jetski-attr="content">
+              <%= ERB::Util.html_escape(message.content.to_s) %>
+            </div>
           </div>
         <% end %>
       </div>
