@@ -507,7 +507,8 @@ body {
 
 .message-content img {
   display: block;
-  max-width: min(100%, 520px);
+  width: 100%;
+  max-width: 100%;
   height: auto;
   border-radius: 14px;
   box-shadow: 0 8px 22px rgba(2, 6, 23, 0.35);
