@@ -13,6 +13,9 @@ window.JetskiChat.gallery = (() => {
   let autoplayInterval = 2000
   let intervalInput = null
   let intervalLabel = null
+  let timelineEl = null
+  let chatId = null
+  let downloadButton = null
 
   const refreshImages = () => {
     if (!messagesEl) return
@@ -27,10 +30,52 @@ window.JetskiChat.gallery = (() => {
         return { img, messageId }
       })
       .filter(Boolean)
+    applyTimelineOrder()
     imageItems.forEach((item, index) => {
       item.img.dataset.galleryIndex = String(index)
     })
     updateCount()
+    renderTimeline()
+  }
+
+  const storageKey = () =>
+    chatId ? `jetski-gallery-order:${chatId}` : null
+
+  const loadOrder = () => {
+    const key = storageKey()
+    if (!key) return []
+    try {
+      const raw = window.localStorage.getItem(key)
+      const parsed = JSON.parse(raw || "[]")
+      return Array.isArray(parsed) ? parsed.map(String) : []
+    } catch {
+      return []
+    }
+  }
+
+  const saveOrder = (order) => {
+    const key = storageKey()
+    if (!key) return
+    try {
+      window.localStorage.setItem(key, JSON.stringify(order))
+    } catch {}
+  }
+
+  const applyTimelineOrder = () => {
+    const order = loadOrder()
+    if (!order.length) return
+    const map = new Map(imageItems.map((item) => [item.messageId, item]))
+    const ordered = []
+    order.forEach((id) => {
+      const item = map.get(id)
+      if (item) {
+        ordered.push(item)
+        map.delete(id)
+      }
+    })
+    map.forEach((item) => ordered.push(item))
+    imageItems = ordered
+    saveOrder(imageItems.map((item) => item.messageId))
   }
 
   const updateCount = () => {
@@ -75,6 +120,7 @@ window.JetskiChat.gallery = (() => {
     if (overlayCounter) {
       overlayCounter.textContent = `${currentIndex + 1} / ${imageItems.length}`
     }
+    setActiveThumb(item.messageId)
     overlay.hidden = false
   }
 
@@ -96,6 +142,10 @@ window.JetskiChat.gallery = (() => {
         `[data-jetski-model="Message"][data-jetski-id="${messageId}"]`
       )
       if (messageEl) messageEl.remove()
+      if (messageId) {
+        const nextOrder = loadOrder().filter((id) => id !== String(messageId))
+        saveOrder(nextOrder)
+      }
       refreshImages()
       if (!overlay?.hidden) {
         if (!imageItems.length) {
@@ -136,6 +186,53 @@ window.JetskiChat.gallery = (() => {
     )
   }
 
+  const setActiveThumb = (messageId) => {
+    if (!timelineEl) return
+    timelineEl
+      .querySelectorAll(".gallery-thumb")
+      .forEach((thumb) =>
+        thumb.classList.toggle(
+          "is-active",
+          thumb.dataset.messageId === String(messageId)
+        )
+      )
+  }
+
+  const renderTimeline = () => {
+    if (!timelineEl) return
+    timelineEl.innerHTML = ""
+    imageItems.forEach((item, index) => {
+      const thumb = document.createElement("button")
+      thumb.type = "button"
+      thumb.className = "gallery-thumb"
+      thumb.dataset.messageId = item.messageId
+      thumb.dataset.index = String(index)
+      thumb.draggable = true
+      thumb.innerHTML = `<img src="${item.img.src}" alt="Thumbnail" />`
+      timelineEl.appendChild(thumb)
+    })
+    if (imageItems[currentIndex]) {
+      setActiveThumb(imageItems[currentIndex].messageId)
+    }
+  }
+
+  const reorderTimeline = (dragId, targetId) => {
+    if (!dragId || !targetId || dragId === targetId) return
+    const order = imageItems.map((item) => item.messageId)
+    const fromIndex = order.indexOf(String(dragId))
+    const toIndex = order.indexOf(String(targetId))
+    if (fromIndex < 0 || toIndex < 0) return
+    order.splice(toIndex, 0, order.splice(fromIndex, 1)[0])
+    saveOrder(order)
+    applyTimelineOrder()
+    renderTimeline()
+    const newIndex = order.indexOf(String(dragId))
+    if (newIndex >= 0) {
+      currentIndex = newIndex
+      openAt(currentIndex)
+    }
+  }
+
   const bindEvents = () => {
     if (!messagesEl) return
     messagesEl.addEventListener("click", (event) => {
@@ -171,6 +268,8 @@ window.JetskiChat.gallery = (() => {
     autoplayButton = overlay?.querySelector("[data-gallery-autoplay]")
     intervalInput = overlay?.querySelector("[data-gallery-interval]")
     intervalLabel = overlay?.querySelector("[data-gallery-interval-label]")
+    timelineEl = overlay?.querySelector("[data-gallery-timeline]")
+    downloadButton = overlay?.querySelector("[data-gallery-download]")
 
     closeBtn?.addEventListener("click", close)
     prevBtn?.addEventListener("click", () => openAt(currentIndex - 1))
@@ -201,6 +300,76 @@ window.JetskiChat.gallery = (() => {
         }
       })
     }
+
+    downloadButton?.addEventListener("click", async () => {
+      if (!imageItems.length) return
+      const images = imageItems
+        .map((item) => item.img.src)
+        .filter((src) => src.startsWith("data:image/"))
+      if (!images.length) return
+      if (!chatId) return
+
+      const payload = {
+        images,
+        interval: autoplayInterval / 1000
+      }
+
+      const originalLabel = downloadButton.textContent
+      downloadButton.textContent = "Preparing..."
+      downloadButton.disabled = true
+      try {
+        const res = await fetch("/gallery-gif", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            chat_id: chatId,
+            payload: JSON.stringify(payload)
+          })
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `chat-${chatId}-gallery.gif`
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(url)
+      } catch (error) {
+        console.warn("GIF download failed", error)
+      } finally {
+        downloadButton.textContent = originalLabel
+        downloadButton.disabled = false
+      }
+    })
+
+    timelineEl?.addEventListener("click", (event) => {
+      const thumb = event.target.closest(".gallery-thumb")
+      if (!thumb) return
+      const index = Number(thumb.dataset.index)
+      if (!Number.isNaN(index)) openAt(index)
+    })
+
+    timelineEl?.addEventListener("dragstart", (event) => {
+      const thumb = event.target.closest(".gallery-thumb")
+      if (!thumb) return
+      event.dataTransfer?.setData("text/plain", thumb.dataset.messageId || "")
+      event.dataTransfer?.setDragImage(thumb, 20, 20)
+    })
+
+    timelineEl?.addEventListener("dragover", (event) => {
+      if (event.target.closest(".gallery-thumb")) {
+        event.preventDefault()
+      }
+    })
+
+    timelineEl?.addEventListener("drop", (event) => {
+      const target = event.target.closest(".gallery-thumb")
+      if (!target) return
+      const dragId = event.dataTransfer?.getData("text/plain")
+      reorderTimeline(dragId, target.dataset.messageId)
+    })
   }
 
   const observeMessages = () => {
@@ -215,6 +384,7 @@ window.JetskiChat.gallery = (() => {
     overlayImage = overlay?.querySelector("[data-gallery-image]")
     overlayCounter = overlay?.querySelector("[data-gallery-counter]")
     countBadge = document.querySelector("[data-gallery-count]")
+    chatId = document.querySelector("[data-chat-id]")?.dataset?.chatId
     if (!messagesEl || !overlay) return
     refreshImages()
     bindEvents()

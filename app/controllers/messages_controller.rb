@@ -31,10 +31,10 @@ class MessagesController < Jetski::BaseController
 
   def delete
     message = Message.find(params[:message_id])
-    return render plain: "", status: 404 unless message
+    return render text: "", status: 404 unless message
 
     destroy_record(message)
-    render plain: "", status: 204
+    render text: "", status: 204
   end
 
   private

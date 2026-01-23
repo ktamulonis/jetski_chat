@@ -1,10 +1,15 @@
 require "yaml"
+require "base64"
+require "json"
+require "open3"
+require "tmpdir"
 
 class ChatsController < Jetski::BaseController
   route :index, root: true
   route :delete_chat, path: "/chat-delete", request_method: "POST"
   route :destroy_all, path: "/chats-delete-all", request_method: "POST"
   route :update_image_mode, path: "/chat-image-mode", request_method: "POST"
+  route :gallery_gif, path: "/gallery-gif", request_method: "POST"
 
   def index
     @chats = Chat.all
@@ -73,11 +78,78 @@ class ChatsController < Jetski::BaseController
 
   def update_image_mode
     chat = Chat.find(params[:chat_id])
-    return render plain: "", status: 404 unless chat
+    return render text: "", status: 404 unless chat
 
     enabled = params[:image_mode].to_s == "1" ? 1 : 0
     Chat.patch(chat.id, image_mode: enabled)
-    render plain: "", status: 204
+    render text: "", status: 204
+  end
+
+  def gallery_gif
+    chat = Chat.find(params[:chat_id])
+    return render_text("", 404) unless chat
+
+    payload = JSON.parse(params[:payload].to_s) rescue {}
+    images = Array(payload["images"]).map(&:to_s)
+    interval = payload["interval"].to_f
+    interval = 2.0 if interval <= 0
+
+    frame_paths = []
+
+    Dir.mktmpdir("jetski-gallery-") do |dir|
+      images.each_with_index do |data_url, index|
+        match = data_url.match(/\Adata:(image\/[a-zA-Z0-9.+-]+);base64,(.+)\z/m)
+        next unless match
+        mime = match[1]
+        ext = mime.split("/").last.to_s
+        ext = "jpg" if ext == "jpeg"
+        filename = format("frame_%05d.%s", index, ext)
+        path = File.join(dir, filename)
+        File.binwrite(path, Base64.decode64(match[2]))
+        frame_paths << path
+      end
+
+      return render_text("No images found", 422) if frame_paths.empty?
+
+      list_path = File.join(dir, "list.txt")
+      File.open(list_path, "w") do |file|
+        frame_paths.each do |path|
+          file.puts "file '#{path}'"
+          file.puts "duration #{interval}"
+        end
+        file.puts "file '#{frame_paths.last}'"
+      end
+
+      fps = (1.0 / interval).clamp(0.1, 60.0)
+      output_path = File.join(dir, "gallery.gif")
+      cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        list_path,
+        "-vf",
+        "fps=#{fps},scale=960:-1:flags=lanczos",
+        "-loop",
+        "0",
+        output_path
+      ]
+
+      _out, err, status = Open3.capture3(*cmd)
+      unless status.success? && File.exist?(output_path)
+        warn "Gallery GIF ffmpeg error: #{err}"
+        return render_text("GIF export failed", 500)
+      end
+
+      res.status = 200
+      res.content_type = "image/gif"
+      res["Content-Disposition"] = "attachment; filename=\"chat-#{chat.id}-gallery.gif\""
+      res.body = File.binread(output_path)
+      @performed_render = true
+    end
   end
 
   private
@@ -86,6 +158,13 @@ class ChatsController < Jetski::BaseController
     @welcome_messages ||= Array(YAML.load_file(
       File.expand_path("../assets/welcome_messages.yml", __dir__)
     ))
+  end
+
+  def render_text(text, status)
+    res.status = status
+    res.content_type = "text/plain"
+    res.body = "#{text}\n"
+    @performed_render = true
   end
 
   def destroy_record(record)
