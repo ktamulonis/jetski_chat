@@ -90,11 +90,27 @@ class ChatsController < Jetski::BaseController
     return render_text("", 404) unless chat
 
     payload = JSON.parse(params[:payload].to_s) rescue {}
-    images = Array(payload["images"]).map(&:to_s)
+    message_ids = Array(payload["message_ids"]).map(&:to_s)
     interval = payload["interval"].to_f
     interval = 2.0 if interval <= 0
 
     frame_paths = []
+    images = []
+
+    if message_ids.empty?
+      messages = Array(chat.messages).select { |m| m.role == "assistant" }
+    else
+      message_map = Array(chat.messages).each_with_object({}) do |message, memo|
+        memo[message.id.to_s] = message
+      end
+      messages = message_ids.map { |id| message_map[id] }.compact
+    end
+
+    messages.each do |message|
+      match = message.content.to_s.match(/\A!\[[^\]]*\]\((data:image\/[^)]+)\)\z/)
+      next unless match
+      images << match[1]
+    end
 
     Dir.mktmpdir("jetski-gallery-") do |dir|
       images.each_with_index do |data_url, index|

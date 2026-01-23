@@ -131,6 +131,10 @@ window.JetskiChat.gallery = (() => {
   }
 
   const deleteMessage = async (messageId) => {
+    const messageEl = messagesEl?.querySelector(
+      `[data-jetski-model="Message"][data-jetski-id="${messageId}"]`
+    )
+    if (messageEl) messageEl.remove()
     try {
       const res = await fetch("/message-delete", {
         method: "POST",
@@ -138,10 +142,11 @@ window.JetskiChat.gallery = (() => {
         body: new URLSearchParams({ message_id: messageId })
       })
       if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`)
-      const messageEl = messagesEl?.querySelector(
-        `[data-jetski-model="Message"][data-jetski-id="${messageId}"]`
+      const fallbackImg = messagesEl?.querySelector(
+        `.message img[data-message-id="${messageId}"]`
       )
-      if (messageEl) messageEl.remove()
+      const fallbackMessage = fallbackImg?.closest(".message")
+      if (fallbackMessage) fallbackMessage.remove()
       if (messageId) {
         const nextOrder = loadOrder().filter((id) => id !== String(messageId))
         saveOrder(nextOrder)
@@ -303,14 +308,10 @@ window.JetskiChat.gallery = (() => {
 
     downloadButton?.addEventListener("click", async () => {
       if (!imageItems.length) return
-      const images = imageItems
-        .map((item) => item.img.src)
-        .filter((src) => src.startsWith("data:image/"))
-      if (!images.length) return
       if (!chatId) return
 
       const payload = {
-        images,
+        message_ids: imageItems.map((item) => item.messageId),
         interval: autoplayInterval / 1000
       }
 

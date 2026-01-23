@@ -261,12 +261,13 @@
         required
       ></textarea>
 
-      <button
-        type="submit"
-        class="send-btn"
-        aria-label="Send"
-        title="Ctrl+Shift+Enter to send"
-      >
+      <div class="send-btn-wrap">
+        <button
+          type="submit"
+          class="send-btn"
+          aria-label="Send"
+          title="Ctrl+Shift+Enter to send"
+        >
         <svg
           width="20"
           height="20"
@@ -280,7 +281,9 @@
             fill="currentColor"
           />
         </svg>
-      </button>
+        </button>
+        <div class="send-hint" data-send-hint>Tip: Ctrl+Shift+Enter to send</div>
+      </div>
     </form>
   </main>
 

@@ -208,6 +208,14 @@ window.JetskiChat.messages = (() => {
         messageEl.querySelector('[data-jetski-attr="content"]')
       )
       .map((contentEl) => (contentEl ? getRawContent(contentEl) : ""))
+      .map((text) => {
+        const lines = String(text || "")
+          .replace(/\r\n/g, "\n")
+          .split("\n")
+        while (lines.length && lines[0].trim() === "") lines.shift()
+        while (lines.length && lines[lines.length - 1].trim() === "") lines.pop()
+        return lines.join("\n")
+      })
       .filter((text) => text.trim() !== "")
   }
 
@@ -366,7 +374,17 @@ window.JetskiChat.messages = (() => {
 
     messageInput?.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return
-      if (!(event.ctrlKey && event.shiftKey)) return
+      if (!(event.ctrlKey && event.shiftKey)) {
+        const hint = document.querySelector("[data-send-hint]")
+        if (hint) {
+          hint.classList.add("is-visible")
+          window.clearTimeout(hint.__hideTimer)
+          hint.__hideTimer = window.setTimeout(() => {
+            hint.classList.remove("is-visible")
+          }, 1600)
+        }
+        return
+      }
       event.preventDefault()
       if (messageForm?.requestSubmit) {
         messageForm.requestSubmit()
@@ -386,6 +404,19 @@ window.JetskiChat.messages = (() => {
       } else {
         historyIndex = Math.max(0, historyIndex - 1)
       }
+      messageInput.value = history[historyIndex]
+      const end = messageInput.value.length
+      messageInput.setSelectionRange(end, end)
+    })
+
+    messageInput?.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown") return
+      if (!messageInput) return
+      if (historyIndex == null) return
+      const history = getUserMessageHistory()
+      if (!history.length) return
+      event.preventDefault()
+      historyIndex = Math.min(history.length - 1, historyIndex + 1)
       messageInput.value = history[historyIndex]
       const end = messageInput.value.length
       messageInput.setSelectionRange(end, end)
