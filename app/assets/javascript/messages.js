@@ -168,9 +168,15 @@ window.JetskiChat.messages = (() => {
     if (!contentEl) return
 
     const rawText = getRawContent(contentEl)
-    messageInput.value = rawText
+    const normalized = (() => {
+      const lines = String(rawText || "").replace(/\r\n/g, "\n").split("\n")
+      while (lines.length && lines[0].trim() === "") lines.shift()
+      while (lines.length && lines[lines.length - 1].trim() === "") lines.pop()
+      return lines.join("\n")
+    })()
+    messageInput.value = normalized
     messageInput.focus()
-    const end = rawText.length
+    const end = messageInput.value.length
     messageInput.setSelectionRange(end, end)
   }
 
@@ -285,25 +291,77 @@ window.JetskiChat.messages = (() => {
 
     scrollButton = document.getElementById("scroll-to-bottom")
     messageInput = document.querySelector("form.message-form textarea")
+    const messageForm = document.querySelector("form.message-form")
 
     const imageToggle = document.querySelector("[data-image-toggle]")
     const imageModeInput = document.querySelector("[data-image-mode-input]")
+    const chatPanel = document.querySelector("[data-chat-id]")
+    const chatId = chatPanel?.dataset?.chatId
+    const serverImageMode = chatPanel?.dataset?.imageMode
+    const imageModeStorageKey = chatId
+      ? `jetski-chat-image-mode:${chatId}`
+      : null
 
     if (imageToggle && imageModeInput) {
-      const updateToggle = (enabled) => {
+      const updateToggle = (enabled, persist = false) => {
         imageToggle.classList.toggle("is-active", enabled)
         imageToggle.setAttribute("aria-pressed", enabled.toString())
         imageToggle.textContent = enabled ? "Image: On" : "Image: Off"
         imageModeInput.value = enabled ? "1" : "0"
+        if (imageModeStorageKey) {
+          try {
+            window.localStorage.setItem(
+              imageModeStorageKey,
+              enabled ? "1" : "0"
+            )
+          } catch {}
+        }
+        if (persist && chatId) {
+          fetch("/chat-image-mode", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              chat_id: chatId,
+              image_mode: enabled ? "1" : "0"
+            })
+          }).catch((error) => {
+            console.warn("Image mode update failed", error)
+          })
+        }
       }
 
-      updateToggle(false)
+      let initialMode = serverImageMode
+      if (imageModeStorageKey) {
+        try {
+          const storedMode = window.localStorage.getItem(imageModeStorageKey)
+          if (storedMode != null) initialMode = storedMode
+        } catch {}
+      }
+      if (initialMode != null) {
+        imageModeInput.value = initialMode === "1" ? "1" : "0"
+      }
+      updateToggle(imageModeInput.value === "1")
 
       imageToggle.addEventListener("click", () => {
         const enabled = imageModeInput.value !== "1"
-        updateToggle(enabled)
+        updateToggle(enabled, true)
+      })
+
+      messageForm?.addEventListener("submit", () => {
+        updateToggle(imageModeInput.value === "1")
       })
     }
+
+    messageInput?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return
+      if (!(event.ctrlKey && event.shiftKey)) return
+      event.preventDefault()
+      if (messageForm?.requestSubmit) {
+        messageForm.requestSubmit()
+      } else {
+        messageForm?.submit()
+      }
+    })
 
     wireScroll()
     messagesEl.addEventListener("click", handleCopyClick)

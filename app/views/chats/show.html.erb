@@ -105,17 +105,62 @@
     </div>
   </aside>
 
-  <main class="right-panel">
+  <main
+    class="right-panel"
+    data-chat-id="<%= @chat.id %>"
+    data-image-mode="<%= @chat.respond_to?(:image_mode) ? @chat.image_mode.to_i : 0 %>"
+  >
+    <div class="chat-topbar">
+      <div class="chat-topbar-title">Chat</div>
+      <div class="chat-topbar-actions">
+        <button
+          type="button"
+          class="image-toggle"
+          data-image-toggle
+          aria-pressed="false"
+        >
+          Image: Off
+        </button>
+        <button
+          type="button"
+          class="gallery-toggle"
+          data-gallery-toggle
+          aria-label="Open gallery"
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              d="M4 6H20V18H4V6Z"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M8 10H16"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M8 14H14"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="gallery-count" data-gallery-count>0</span>
+        </button>
+      </div>
+    </div>
+
     <div class="chat-header">
       <h2><%= @chat.title %></h2>
-      <button
-        type="button"
-        class="image-toggle"
-        data-image-toggle
-        aria-pressed="false"
-      >
-        Image: Off
-      </button>
     </div>
 
     <!-- ========================================================= -->
@@ -206,7 +251,7 @@
       <input
         type="hidden"
         name="image_mode"
-        value="0"
+        value="<%= @chat.respond_to?(:image_mode) && @chat.image_mode.to_i == 1 ? "1" : "0" %>"
         data-image-mode-input
       />
 
@@ -216,7 +261,12 @@
         required
       ></textarea>
 
-      <button type="submit" class="send-btn" aria-label="Send">
+      <button
+        type="submit"
+        class="send-btn"
+        aria-label="Send"
+        title="Ctrl+Shift+Enter to send"
+      >
         <svg
           width="20"
           height="20"
@@ -233,4 +283,46 @@
       </button>
     </form>
   </main>
+
+  <div class="gallery-overlay" data-gallery-overlay hidden>
+    <button type="button" class="gallery-close" data-gallery-close aria-label="Close gallery">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          d="M6 6L18 18M6 18L18 6"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        />
+      </svg>
+    </button>
+    <div class="gallery-stage">
+      <button type="button" class="gallery-nav prev" data-gallery-prev aria-label="Previous image"></button>
+      <img data-gallery-image alt="Gallery image" />
+      <button type="button" class="gallery-nav next" data-gallery-next aria-label="Next image"></button>
+    </div>
+    <div class="gallery-meta">
+      <div class="gallery-counter" data-gallery-counter>0 / 0</div>
+      <button type="button" class="gallery-autoplay" data-gallery-autoplay>Autoplay</button>
+      <label class="gallery-speed">
+        Speed
+        <input
+          type="range"
+          min="0.2"
+          max="10"
+          step="0.1"
+          value="2"
+          data-gallery-interval
+        />
+        <span data-gallery-interval-label>2.0s</span>
+      </label>
+      <button type="button" class="gallery-delete" data-gallery-delete>Delete image</button>
+    </div>
+  </div>
 </div>
