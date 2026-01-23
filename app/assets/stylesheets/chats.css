@@ -506,6 +506,28 @@ body {
   white-space: normal;
 }
 
+.image-progress {
+  margin-top: 8px;
+  background: rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+  padding: 6px 10px 8px;
+}
+
+.image-progress-bar {
+  height: 6px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 400ms ease;
+}
+
+.image-progress-label {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+}
+
 .message-content p {
   margin: 0 0 8px;
 }
