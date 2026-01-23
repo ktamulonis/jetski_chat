@@ -4,6 +4,7 @@ class ChatsController < Jetski::BaseController
   route :index, root: true
   route :delete_chat, path: "/chat-delete", request_method: "POST"
   route :destroy_all, path: "/chats-delete-all", request_method: "POST"
+  route :update_image_mode, path: "/chat-image-mode", request_method: "POST"
 
   def index
     @chats = Chat.all
@@ -68,6 +69,15 @@ class ChatsController < Jetski::BaseController
       destroy_record(chat)
     end
     redirect_to "/"
+  end
+
+  def update_image_mode
+    chat = Chat.find(params[:chat_id])
+    return render plain: "", status: 404 unless chat
+
+    enabled = params[:image_mode].to_s == "1" ? 1 : 0
+    Chat.patch(chat.id, image_mode: enabled)
+    render plain: "", status: 204
   end
 
   private
