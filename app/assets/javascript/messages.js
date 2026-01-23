@@ -10,6 +10,7 @@ window.JetskiChat.messages = (() => {
   let autoScrollEnabled = true
   let programmaticScroll = false
   const progressModule = window.JetskiChat.progress
+  let historyIndex = null
 
   const renderMessageContent = (target, rawText) => {
     const renderer = window.JetskiChat.markdown?.renderMessageContent
@@ -199,6 +200,17 @@ window.JetskiChat.messages = (() => {
     }
   }
 
+  const getUserMessageHistory = () => {
+    if (!messagesEl) return []
+    const userMessages = Array.from(messagesEl.querySelectorAll(".message.user"))
+    return userMessages
+      .map((messageEl) =>
+        messageEl.querySelector('[data-jetski-attr="content"]')
+      )
+      .map((contentEl) => (contentEl ? getRawContent(contentEl) : ""))
+      .filter((text) => text.trim() !== "")
+  }
+
   const wireInitialRender = () => {
     messagesEl
       .querySelectorAll('[data-jetski-attr="content"]')
@@ -361,6 +373,26 @@ window.JetskiChat.messages = (() => {
       } else {
         messageForm?.submit()
       }
+    })
+
+    messageInput?.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowUp") return
+      if (!messageInput) return
+      const history = getUserMessageHistory()
+      if (!history.length) return
+      event.preventDefault()
+      if (historyIndex == null) {
+        historyIndex = history.length - 1
+      } else {
+        historyIndex = Math.max(0, historyIndex - 1)
+      }
+      messageInput.value = history[historyIndex]
+      const end = messageInput.value.length
+      messageInput.setSelectionRange(end, end)
+    })
+
+    messageInput?.addEventListener("input", () => {
+      historyIndex = null
     })
 
     wireScroll()
