@@ -9,12 +9,7 @@ window.JetskiChat.messages = (() => {
   let messageInput = null
   let autoScrollEnabled = true
   let programmaticScroll = false
-  const progressState = new Map()
-  const fakeProgressInterval = 2000
-  const fakeProgressCap = 70
-  const fakeProgressStep = 10
-  const fakeProgressTailStep = 2
-  const fakeProgressTailCap = 95
+  const progressModule = window.JetskiChat.progress
 
   const renderMessageContent = (target, rawText) => {
     const renderer = window.JetskiChat.markdown?.renderMessageContent
@@ -30,107 +25,20 @@ window.JetskiChat.messages = (() => {
     target?.dataset?.raw ||
     ""
 
-  const ensureProgressBar = (messageEl) => {
-    if (!messageEl) return null
-    let progressEl = messageEl.querySelector(".image-progress")
-    if (!progressEl) {
-      progressEl = document.createElement("div")
-      progressEl.className = "image-progress"
-      progressEl.setAttribute("role", "progressbar")
-      progressEl.setAttribute("aria-valuemin", "0")
-      progressEl.setAttribute("aria-valuemax", "100")
-      const bar = document.createElement("div")
-      bar.className = "image-progress-bar"
-      const label = document.createElement("div")
-      label.className = "image-progress-label"
-      label.textContent = "Starting image generation..."
-      progressEl.appendChild(bar)
-      progressEl.appendChild(label)
-      messageEl.appendChild(progressEl)
-    }
-    return progressEl
-  }
-
-  const setProgressValue = (progressEl, value, meta = {}) => {
-    if (!progressEl) return
-    const safeValue = Math.max(0, Math.min(100, value))
-    progressEl.dataset.value = safeValue.toFixed(1)
-    progressEl.setAttribute("aria-valuenow", Math.round(safeValue).toString())
-    const bar = progressEl.querySelector(".image-progress-bar")
-    if (bar) {
-      bar.style.width = `${safeValue}%`
-    }
-    const label = progressEl.querySelector(".image-progress-label")
-    if (label) {
-      const labelText = meta.label || `Generating image... ${Math.round(safeValue)}%`
-      label.textContent = labelText
-    }
-  }
-
-  const stopProgressTicker = (messageId) => {
-    const state = progressState.get(messageId)
-    if (state?.timer) {
-      window.clearInterval(state.timer)
-      state.timer = null
-    }
-  }
-
-  const startProgressTicker = (messageId, messageEl) => {
-    if (!messageId) return
-    const existing = progressState.get(messageId)
-    if (existing?.timer) return
-
-    const progressEl = ensureProgressBar(messageEl)
-    if (!progressEl) return
-
-    const state = existing || {
-      value: 0,
-      target: 0,
-      hasReal: false,
-      timer: null
-    }
-
-    state.timer = window.setInterval(() => {
-      let nextValue = state.value
-      let label = "Generating image..."
-      if (state.hasReal) {
-        const target = Math.min(state.target || 0, 100)
-        nextValue = Math.min(state.value + fakeProgressStep, target || 100)
-        label = `Generating image... ${Math.round(target)}%`
-      } else {
-        const target = Math.max(state.target || 0, fakeProgressCap)
-        if (state.value < target) {
-          nextValue = Math.min(state.value + fakeProgressStep, target)
-        } else {
-          nextValue = Math.min(state.value + fakeProgressTailStep, fakeProgressTailCap)
-        }
-        label = "Generating image... (waiting for progress)"
-      }
-
-      if (nextValue > state.value) {
-        state.value = nextValue
-        setProgressValue(progressEl, state.value, { label })
-        console.log("🎨 Ollama image progress tick", {
-          messageId,
-          percent: Math.round(state.value),
-          hasReal: state.hasReal
-        })
-      }
-      if (state.hasReal && state.value >= 100) {
-        stopProgressTicker(messageId)
-      }
-    }, fakeProgressInterval)
-
-    progressState.set(messageId, state)
-    console.log("🎨 Ollama image ticker started", { messageId })
-  }
-
   const parseProgressText = (rawText) => {
     const text = (rawText || "").trim()
     if (!/Generating image/i.test(text)) return null
     const match = text.match(/\((\d+)\s*\/\s*(\d+)\)/)
     if (!match) return { text, completed: null, total: null }
     return { text, completed: Number(match[1]), total: Number(match[2]) }
+  }
+
+  const updateMessageLabel = (messageEl, label) => {
+    const contentEl = messageEl?.querySelector('[data-jetski-attr="content"]')
+    if (!contentEl) return
+    const current = getRawContent(contentEl) || contentEl.textContent || ""
+    if (!/Generating image/i.test(current)) return
+    renderMessageContent(contentEl, label)
   }
 
   const updateImageProgress = (messageEl, rawText) => {
@@ -140,12 +48,10 @@ window.JetskiChat.messages = (() => {
     const contentEl = messageEl.querySelector('[data-jetski-attr="content"]')
     const fallbackText = contentEl?.textContent || ""
     const progressInfo = parseProgressText(rawText) || parseProgressText(fallbackText)
+    const trackerId = `image-${messageId}`
 
     if (!progressInfo) {
-      const progressEl = messageEl.querySelector(".image-progress")
-      if (progressEl) progressEl.remove()
-      stopProgressTicker(messageId)
-      progressState.delete(messageId)
+      progressModule?.remove(trackerId)
       return
     }
 
@@ -154,43 +60,32 @@ window.JetskiChat.messages = (() => {
       rawText,
       fallbackText
     })
-    const progressEl = ensureProgressBar(messageEl)
-    const state = progressState.get(messageId) || {
-      value: 0,
-      target: 0,
-      hasReal: false,
-      timer: null
-    }
+    const tracker = progressModule?.ensure({
+      id: trackerId,
+      container: messageEl,
+      labelPrefix: "Generating image",
+      className: "image-progress",
+      barClass: "image-progress-bar",
+      labelClass: "image-progress-label",
+      debug: true,
+      logPrefix: "🎨 Ollama image",
+      onLabel: (label) => updateMessageLabel(messageEl, label)
+    })
+    if (!tracker) return
 
     const completed = progressInfo.completed
     const total = progressInfo.total
     if (completed && total) {
       const ratio = Number(completed) / Math.max(1, Number(total))
-      const nextTarget = Math.max(state.target, Math.min(100, ratio * 100))
-      state.target = nextTarget
-      state.hasReal = true
-      console.log("🎨 Ollama image progress", {
-        messageId,
+      const percent = Math.round(ratio * 100)
+      tracker.update({
         completed,
         total,
-        percent: Math.round(nextTarget)
+        label: `Generating image... ${percent}%`
       })
-      if (progressEl) {
-        setProgressValue(progressEl, Math.max(state.value, nextTarget), {
-          label: `Generating image... ${Math.round(nextTarget)}%`
-        })
-      }
     } else {
-      state.target = Math.max(state.target, fakeProgressCap)
-      if (progressEl && state.value === 0) {
-        setProgressValue(progressEl, 0, {
-          label: "Generating image... (waiting for progress)"
-        })
-      }
+      tracker.markPending("Generating image... (waiting for progress)")
     }
-
-    progressState.set(messageId, state)
-    startProgressTicker(messageId, messageEl)
   }
 
   const isAtBottom = () => {
