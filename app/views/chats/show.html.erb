@@ -129,7 +129,42 @@
             data-jetski-model="Message"
             data-jetski-id="<%= message.id %>"
           >
-            <strong><%= message.role %>:</strong>
+            <div class="message-header">
+              <strong><%= message.role %>:</strong>
+              <% if message.role == "user" %>
+                <button
+                  type="button"
+                  class="message-edit"
+                  data-message-edit
+                  aria-label="Retry message"
+                  title="Retry message"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M20 6V12H14M4 18V12H10"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M6.5 8.5C8 6.5 10.3 5 12.8 5C16.2 5 19 7.8 19 11.2M5 12.8C5 16.2 7.8 19 11.2 19C13.7 19 16 17.5 17.5 15.5"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </button>
+              <% end %>
+            </div>
 
             <div class="message-content" data-jetski-attr="content">
               <%= ERB::Util.html_escape(message.content.to_s) %>

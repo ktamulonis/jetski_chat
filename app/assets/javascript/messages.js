@@ -6,6 +6,7 @@ window.JetskiChat.messages = (() => {
   let es = null
   let messagesEl = null
   let scrollButton = null
+  let messageInput = null
   let autoScrollEnabled = true
   let programmaticScroll = false
 
@@ -91,6 +92,22 @@ window.JetskiChat.messages = (() => {
     } catch (error) {
       console.warn("Copy failed", error)
     }
+  }
+
+  const handleEditClick = (event) => {
+    const button = event.target.closest("[data-message-edit]")
+    if (!button) return
+    if (!messageInput) return
+
+    const messageEl = button.closest(".message")
+    const contentEl = messageEl?.querySelector('[data-jetski-attr="content"]')
+    if (!contentEl) return
+
+    const rawText = getRawContent(contentEl)
+    messageInput.value = rawText
+    messageInput.focus()
+    const end = rawText.length
+    messageInput.setSelectionRange(end, end)
   }
 
   const wireScroll = () => {
@@ -187,6 +204,7 @@ window.JetskiChat.messages = (() => {
     if (!messagesEl) return
 
     scrollButton = document.getElementById("scroll-to-bottom")
+    messageInput = document.querySelector("form.message-form textarea")
 
     const imageToggle = document.querySelector("[data-image-toggle]")
     const imageModeInput = document.querySelector("[data-image-mode-input]")
@@ -209,6 +227,7 @@ window.JetskiChat.messages = (() => {
 
     wireScroll()
     messagesEl.addEventListener("click", handleCopyClick)
+    messagesEl.addEventListener("click", handleEditClick)
     wireInitialRender()
     wireStreaming()
   }
