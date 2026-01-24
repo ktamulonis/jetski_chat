@@ -1,60 +1,159 @@
 require "net/http"
 require "json"
+require "timeout"
 
 class Message < Jetski::Model
   DEFAULT_CHAT_TITLES = ["New Chat", "Untitled"].freeze
   TITLE_MIN_USER_CHARS = 30
   TITLE_MIN_TOTAL_CHARS = 120
   TITLE_MIN_USER_MESSAGES = 2
+  @@iteration_cancellations = {}
 
-  def self.call_ollama(chat_id)
+  def self.cancel_iterations(chat_id)
+    @@iteration_cancellations[chat_id.to_s] = true
+  end
+
+  def self.reset_iterations(chat_id)
+    @@iteration_cancellations.delete(chat_id.to_s)
+  end
+
+  def self.iterations_cancelled?(chat_id)
+    @@iteration_cancellations[chat_id.to_s] == true
+  end
+
+  def self.call_ollama(chat_id, messages: nil, assistant: nil)
     chat = Chat.find(chat_id)
     uri = URI("http://localhost:11434/api/chat")
 
-    messages = chat.messages.map { |m| { role: m.role, content: m.content } }
+    payload_messages = Array(messages || chat.messages).map do |message|
+      if message.respond_to?(:role)
+        { role: message.role, content: message.content }
+      else
+        { role: message[:role] || message["role"], content: message[:content] || message["content"] }
+      end
+    end
 
-    assistant = Message.create(
+    assistant ||= Message.create(
       chat_id: chat.id,
       role: "assistant",
       content: ""
     )
 
+    delta_count = 0
+    parse_objects = lambda do |text|
+      objects = []
+      text.each_line do |line|
+        line = line.strip
+        next if line == ""
+        begin
+          objects << JSON.parse(line)
+          next
+        rescue JSON::ParserError
+        end
+
+        parts = line.split(/}\s*{/)
+        next if parts.length <= 1
+        parts.each do |part|
+          json_str = part
+          json_str = "{#{json_str}" unless json_str.start_with?("{")
+          json_str = "#{json_str}}" unless json_str.end_with?("}")
+          begin
+            objects << JSON.parse(json_str)
+          rescue JSON::ParserError
+            next
+          end
+        end
+      end
+      objects
+    end
     Net::HTTP.start(uri.host, uri.port) do |http|
+      http.open_timeout = 10
+      http.read_timeout = 120
+      http.write_timeout = 10 if http.respond_to?(:write_timeout=)
       req = Net::HTTP::Post.new(uri)
       req["Content-Type"] = "application/json"
       req.body = {
         model: "llama3.2",
-        messages: messages,
+        messages: payload_messages,
         stream: true
       }.to_json
 
       http.request(req) do |res|
+        buffer = +""
+        done = false
         res.read_body do |chunk|
           next if chunk.strip.empty?
-          json = JSON.parse(chunk) rescue nil
-          next unless json
+          buffer << chunk
+          lines = buffer.split("\n")
+          buffer = lines.pop || ""
+          parse_objects.call(lines.join("\n")).each do |json|
+            delta = json.dig("message", "content")
+            if delta
+              # Ensure append hits the persisted record for streaming.
+              Message.append(assistant.id, :content, delta)
+              delta_count += 1
+            end
+            if json["done"] == true
+              done = true
+              break
+            end
+          end
+          break if done
+        end
 
-          delta = json.dig("message", "content")
-          next unless delta
-
-          # This triggers Jetski::Model.append -> patch -> Stream.broadcast
-          assistant.append(:content, delta)
+        if !done && buffer.strip != ""
+          parse_objects.call(buffer).each do |json|
+            delta = json.dig("message", "content")
+            if delta
+              Message.append(assistant.id, :content, delta)
+              delta_count += 1
+            end
+          end
         end
       end
     end
 
+    if delta_count == 0
+      warn "Ollama chat returned no deltas chat=#{chat.id}, retrying non-stream"
+      fallback_req = Net::HTTP::Post.new(uri)
+      fallback_req["Content-Type"] = "application/json"
+      fallback_req.body = {
+        model: "llama3.2",
+        messages: payload_messages,
+        stream: false
+      }.to_json
+      fallback_res = Net::HTTP.start(uri.host, uri.port) do |http|
+        http.open_timeout = 10
+        http.read_timeout = 120
+        http.write_timeout = 10 if http.respond_to?(:write_timeout=)
+        http.request(fallback_req)
+      end
+      payload = JSON.parse(fallback_res.body.to_s) rescue {}
+      fallback_text = payload.dig("message", "content") || payload["response"]
+      if fallback_text.to_s.strip != ""
+        assistant.patch(content: fallback_text)
+      else
+        assistant.patch(content: "No response received.") if assistant&.content.to_s.strip == ""
+      end
+    end
     Thread.new { generate_title(chat.id) }
+  rescue Timeout::Error
+    assistant.patch(content: "Request timed out.") if assistant&.content.to_s.strip == ""
+    raise
   end
 
-  def self.call_ollama_image(chat_id, prompt)
+  def self.call_ollama_image(chat_id, prompt, assistant: nil)
     chat = Chat.find(chat_id)
     uri = URI("http://localhost:11434/api/generate")
 
-    assistant = Message.create(
+    assistant ||= Message.create(
       chat_id: chat.id,
       role: "assistant",
       content: "Generating image..."
     )
+    if assistant.content.to_s.strip == ""
+      assistant.patch(content: "Generating image...")
+    end
     warn "Ollama image start chat=#{chat.id} prompt=#{prompt.to_s[0, 120].inspect}"
 
     req = Net::HTTP::Post.new(uri)
@@ -117,6 +216,9 @@ class Message < Jetski::Model
     end
 
     Net::HTTP.start(uri.host, uri.port) do |http|
+      http.open_timeout = 10
+      http.read_timeout = 180
+      http.write_timeout = 10 if http.respond_to?(:write_timeout=)
       http.request(req) do |res|
         warn "Ollama image response status=#{res.code} content_type=#{res['Content-Type']}"
         res.read_body do |chunk|

@@ -42,10 +42,24 @@ Why it matters:
 ## Development
 ```sh
 bundle install
-bundle exec jetski server
+bin/dev
 ```
 
 Open `http://localhost:8000` and start a chat.
+
+## Database Schema
+Jetski models read directly from SQLite tables. To share schema changes 
+keep `test.db` ignored and commit `db/schema.sql`.
+
+Regenerate schema:
+```sh
+sqlite3 test.db ".schema" > db/schema.sql
+```
+
+Initialize a fresh DB from schema:
+```sh
+sqlite3 test.db < db/schema.sql
+```
 
 ## Local AI (Ollama + Llama 3.2)
 This app is built to use Ollama running locally with the `llama3.2` model.
@@ -64,3 +78,28 @@ ollama run jmorgan/z-image-turbo:fp8
 ```
 
 The app uses the image model when you toggle image mode in the chat header.
+
+## Optional: Background Removal for GIF Export
+High-quality transparent GIF export uses `rembg` when available.
+
+Install (recommended, macOS friendly):
+```sh
+brew install pipx
+pipx install rembg
+pipx inject rembg "onnxruntime"
+```
+
+Or install in a local virtual environment:
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install "rembg[cpu]"
+```
+
+If you use a venv, make sure `rembg` is on PATH when running the server:
+```sh
+source .venv/bin/activate
+bundle exec jetski server
+```
+
+If `rembg` is not installed, the app falls back to an ffmpeg color keyer.

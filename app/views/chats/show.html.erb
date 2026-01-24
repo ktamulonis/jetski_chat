@@ -169,8 +169,9 @@
     <div class="messages-wrapper">
       <div class="messages" id="jetski-messages">
         <% Array(@messages).each do |message| %>
+          <% pending = message.role == "assistant" && message.content.to_s.strip == "" %>
           <div
-            class="message <%= message.role %>"
+            class="message <%= message.role %><%= pending ? " is-pending" : "" %>"
             data-jetski-model="Message"
             data-jetski-id="<%= message.id %>"
           >
@@ -205,9 +206,17 @@
                       stroke-width="2"
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                    />
-                  </svg>
+                  />
+                </svg>
                 </button>
+                <% if Message.attributes.include?("iterations_total") && message.respond_to?(:iterations_total) && message.iterations_total.to_i > 1 %>
+                  <span class="message-iterations">
+                    Runs
+                    <span data-jetski-attr="iterations_completed"><%= message.iterations_completed.to_i %></span>
+                    /
+                    <span data-jetski-attr="iterations_total"><%= message.iterations_total.to_i %></span>
+                  </span>
+                <% end %>
               <% end %>
             </div>
 
@@ -254,19 +263,49 @@
         value="<%= @chat.respond_to?(:image_mode) && @chat.image_mode.to_i == 1 ? "1" : "0" %>"
         data-image-mode-input
       />
+      <input type="hidden" name="iterations_value" value="1" data-iterations-value />
 
-      <textarea
-        name="content"
-        placeholder="Type your message..."
-        required
-      ></textarea>
+      <div class="message-input-wrap">
+        <textarea
+          name="content"
+          placeholder="Type your message..."
+          autofocus
+          required
+        ></textarea>
+        <button
+          type="button"
+          class="input-menu-toggle"
+          aria-label="Message options"
+          data-input-menu-toggle
+        >
+          <span aria-hidden="true">•••</span>
+        </button>
+        <div class="input-menu" data-input-menu hidden>
+          <label class="iteration-control" title="Repeat the same prompt multiple times. Shortcut: Ctrl+Shift+1-9">
+            <span>Runs</span>
+            <input
+              type="number"
+              min="1"
+              max="9"
+              step="1"
+              value="1"
+              name="iterations"
+              data-iterations-input
+            />
+          </label>
+          <div class="iterations-hint" data-iterations-hint>
+            Tip: Ctrl+Shift+1-9 repeats this prompt.
+          </div>
+        </div>
+      </div>
 
-      <button
-        type="submit"
-        class="send-btn"
-        aria-label="Send"
-        title="Ctrl+Shift+Enter to send"
-      >
+      <div class="send-btn-wrap">
+        <button
+          type="submit"
+          class="send-btn"
+          aria-label="Send"
+          title="Ctrl+Shift+Enter to send"
+        >
         <svg
           width="20"
           height="20"
@@ -280,8 +319,28 @@
             fill="currentColor"
           />
         </svg>
-      </button>
+        </button>
+        <div class="send-hint" data-send-hint>Tip: Ctrl+Shift+Enter to send</div>
+      </div>
     </form>
+
+    <div class="iteration-status" data-iteration-status hidden>
+      <div class="iteration-status-row">
+        <div class="iteration-status-label" data-iteration-status-label>
+          Running 0 of 0
+        </div>
+        <button
+          type="button"
+          class="iteration-cancel"
+          data-iteration-cancel
+        >
+          Cancel
+        </button>
+      </div>
+      <div class="iteration-status-bar">
+        <div class="iteration-status-fill" data-iteration-status-fill></div>
+      </div>
+    </div>
   </main>
 
   <div class="gallery-overlay" data-gallery-overlay hidden>
@@ -302,6 +361,7 @@
         />
       </svg>
     </button>
+    <div class="gallery-timeline" data-gallery-timeline></div>
     <div class="gallery-stage">
       <button type="button" class="gallery-nav prev" data-gallery-prev aria-label="Previous image"></button>
       <img data-gallery-image alt="Gallery image" />
@@ -322,6 +382,35 @@
         />
         <span data-gallery-interval-label>2.0s</span>
       </label>
+      <label class="gallery-transparent">
+        <input type="checkbox" data-gallery-transparent />
+        Transparent BG
+      </label>
+      <div class="gallery-key">
+        <span class="gallery-key-label">Palette</span>
+        <input type="color" value="#ffffff" data-gallery-key-color />
+        <span class="gallery-key-auto">
+          <input type="checkbox" checked data-gallery-key-auto />
+          Auto
+        </span>
+        <div class="gallery-key-list" data-gallery-key-list></div>
+        <button type="button" class="gallery-key-clear" data-gallery-key-clear>
+          Clear
+        </button>
+      </div>
+      <label class="gallery-tolerance">
+        Tolerance
+        <input
+          type="range"
+          min="0.02"
+          max="0.6"
+          step="0.01"
+          value="0.2"
+          data-gallery-tolerance
+        />
+        <span data-gallery-tolerance-label>0.20</span>
+      </label>
+      <button type="button" class="gallery-download" data-gallery-download>Download GIF</button>
       <button type="button" class="gallery-delete" data-gallery-delete>Delete image</button>
     </div>
   </div>
