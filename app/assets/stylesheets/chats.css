@@ -782,6 +782,14 @@ form.message-form textarea {
   inset: 0 0 0 auto;
 }
 
+.gallery-overlay.is-picking .gallery-nav {
+  pointer-events: none;
+}
+
+.gallery-overlay.is-picking .gallery-stage img {
+  cursor: crosshair;
+}
+
 .gallery-stage img {
   max-width: 100%;
   max-height: 100%;
@@ -860,6 +868,98 @@ form.message-form textarea {
 
 .gallery-speed span {
   min-width: 40px;
+  text-align: right;
+  color: #cbd5f5;
+}
+
+.gallery-transparent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.gallery-transparent input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.gallery-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.gallery-key-label {
+  font-weight: 600;
+  color: #f8fbff;
+}
+
+.gallery-key input[type="color"] {
+  width: 28px;
+  height: 20px;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.gallery-key-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #cbd5f5;
+}
+
+.gallery-key-auto input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.gallery-key-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.gallery-key-chip {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  cursor: pointer;
+  padding: 0;
+  background: transparent;
+}
+
+.gallery-key-clear {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e2e8f0;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.gallery-tolerance {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+
+.gallery-tolerance input[type="range"] {
+  accent-color: var(--accent);
+}
+
+.gallery-tolerance span {
+  min-width: 42px;
   text-align: right;
   color: #cbd5f5;
 }

@@ -326,6 +326,34 @@
         />
         <span data-gallery-interval-label>2.0s</span>
       </label>
+      <label class="gallery-transparent">
+        <input type="checkbox" data-gallery-transparent />
+        Transparent BG
+      </label>
+      <div class="gallery-key">
+        <span class="gallery-key-label">Palette</span>
+        <input type="color" value="#ffffff" data-gallery-key-color />
+        <span class="gallery-key-auto">
+          <input type="checkbox" checked data-gallery-key-auto />
+          Auto
+        </span>
+        <div class="gallery-key-list" data-gallery-key-list></div>
+        <button type="button" class="gallery-key-clear" data-gallery-key-clear>
+          Clear
+        </button>
+      </div>
+      <label class="gallery-tolerance">
+        Tolerance
+        <input
+          type="range"
+          min="0.02"
+          max="0.6"
+          step="0.01"
+          value="0.2"
+          data-gallery-tolerance
+        />
+        <span data-gallery-tolerance-label>0.20</span>
+      </label>
       <button type="button" class="gallery-download" data-gallery-download>Download GIF</button>
       <button type="button" class="gallery-delete" data-gallery-delete>Delete image</button>
     </div>

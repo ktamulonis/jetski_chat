@@ -64,3 +64,28 @@ ollama run jmorgan/z-image-turbo:fp8
 ```
 
 The app uses the image model when you toggle image mode in the chat header.
+
+## Optional: Background Removal for GIF Export
+High-quality transparent GIF export uses `rembg` when available.
+
+Install (recommended, macOS friendly):
+```sh
+brew install pipx
+pipx install rembg
+pipx inject rembg "onnxruntime"
+```
+
+Or install in a local virtual environment:
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install "rembg[cpu]"
+```
+
+If you use a venv, make sure `rembg` is on PATH when running the server:
+```sh
+source .venv/bin/activate
+bundle exec jetski server
+```
+
+If `rembg` is not installed, the app falls back to an ffmpeg color keyer.
