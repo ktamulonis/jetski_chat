@@ -11,6 +11,12 @@ window.JetskiChat.messages = (() => {
   let programmaticScroll = false
   const progressModule = window.JetskiChat.progress
   let historyIndex = null
+  let iterationStatus = null
+  let iterationStatusLabel = null
+  let iterationStatusFill = null
+  let iterationTarget = 0
+  let iterationBaseCount = 0
+  let updateIterationStatus = () => {}
 
   const renderMessageContent = (target, rawText) => {
     const renderer = window.JetskiChat.markdown?.renderMessageContent
@@ -40,6 +46,10 @@ window.JetskiChat.messages = (() => {
     const current = getRawContent(contentEl) || contentEl.textContent || ""
     if (!/Generating image/i.test(current)) return
     renderMessageContent(contentEl, label)
+    if (label && String(label).trim() !== "") {
+      messageEl?.classList?.remove("is-pending")
+      updateIterationStatus()
+    }
   }
 
   const updateImageProgress = (messageEl, rawText) => {
@@ -227,10 +237,6 @@ window.JetskiChat.messages = (() => {
         renderMessageContent(messageContent, rawText)
         const messageEl = messageContent.closest(".message")
         if (messageEl) {
-          console.log("🎨 Ollama image initial scan", {
-            messageId: messageEl.dataset.jetskiId,
-            rawText
-          })
           updateImageProgress(messageEl, getRawContent(messageContent))
         }
       })
@@ -273,15 +279,19 @@ window.JetskiChat.messages = (() => {
         const target = messageEl.querySelector(
           `[data-jetski-attr="${payload.attribute}"]`
         )
-        if (!target) return
+      if (!target) return
 
-        const nextValue = `${getRawContent(target)}${payload.delta || ""}`
-        renderMessageContent(target, nextValue)
-        if (payload.attribute === "content") {
-          updateImageProgress(messageEl, nextValue)
-        }
-        handleContentUpdate()
-        return
+      const nextValue = `${getRawContent(target)}${payload.delta || ""}`
+      renderMessageContent(target, nextValue)
+      if (payload.attribute === "content" && nextValue.trim() !== "") {
+        messageEl.classList.remove("is-pending")
+        updateIterationStatus()
+      }
+      if (payload.attribute === "content") {
+        updateImageProgress(messageEl, nextValue)
+      }
+      handleContentUpdate()
+      return
       }
 
       if (eventType === "model_update") {
@@ -294,6 +304,10 @@ window.JetskiChat.messages = (() => {
           const target = messageEl.querySelector(`[data-jetski-attr="${attr}"]`)
           if (target) {
             renderMessageContent(target, value)
+            if (attr === "content" && String(value || "").trim() !== "") {
+              messageEl.classList.remove("is-pending")
+              updateIterationStatus()
+            }
             if (attr === "content") {
               updateImageProgress(messageEl, getRawContent(target))
             }
@@ -312,15 +326,16 @@ window.JetskiChat.messages = (() => {
     scrollButton = document.getElementById("scroll-to-bottom")
     messageInput = document.querySelector("form.message-form textarea")
     const messageForm = document.querySelector("form.message-form")
+    iterationStatus = document.querySelector("[data-iteration-status]")
+    iterationStatusLabel = document.querySelector("[data-iteration-status-label]")
+    iterationStatusFill = document.querySelector("[data-iteration-status-fill]")
+    const iterationCancel = document.querySelector("[data-iteration-cancel]")
+    const chatPanel = document.querySelector("[data-chat-id]")
+    const chatId = chatPanel?.dataset?.chatId
 
     const imageToggle = document.querySelector("[data-image-toggle]")
     const imageModeInput = document.querySelector("[data-image-mode-input]")
-    const chatPanel = document.querySelector("[data-chat-id]")
-    const chatId = chatPanel?.dataset?.chatId
     const serverImageMode = chatPanel?.dataset?.imageMode
-    const imageModeStorageKey = chatId
-      ? `jetski-chat-image-mode:${chatId}`
-      : null
 
     if (imageToggle && imageModeInput) {
       const updateToggle = (enabled, persist = false) => {
@@ -328,14 +343,6 @@ window.JetskiChat.messages = (() => {
         imageToggle.setAttribute("aria-pressed", enabled.toString())
         imageToggle.textContent = enabled ? "Image: On" : "Image: Off"
         imageModeInput.value = enabled ? "1" : "0"
-        if (imageModeStorageKey) {
-          try {
-            window.localStorage.setItem(
-              imageModeStorageKey,
-              enabled ? "1" : "0"
-            )
-          } catch {}
-        }
         if (persist && chatId) {
           fetch("/chat-image-mode", {
             method: "POST",
@@ -350,16 +357,8 @@ window.JetskiChat.messages = (() => {
         }
       }
 
-      let initialMode = serverImageMode
-      if (imageModeStorageKey) {
-        try {
-          const storedMode = window.localStorage.getItem(imageModeStorageKey)
-          if (storedMode != null) initialMode = storedMode
-        } catch {}
-      }
-      if (initialMode != null) {
-        imageModeInput.value = initialMode === "1" ? "1" : "0"
-      }
+      const initialMode = serverImageMode === "1" ? "1" : "0"
+      imageModeInput.value = initialMode
       updateToggle(imageModeInput.value === "1")
 
       imageToggle.addEventListener("click", () => {
@@ -372,26 +371,157 @@ window.JetskiChat.messages = (() => {
       })
     }
 
-    messageInput?.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return
-      if (!(event.ctrlKey && event.shiftKey)) {
-        const hint = document.querySelector("[data-send-hint]")
-        if (hint) {
-          hint.classList.add("is-visible")
-          window.clearTimeout(hint.__hideTimer)
-          hint.__hideTimer = window.setTimeout(() => {
-            hint.classList.remove("is-visible")
-          }, 1600)
-        }
+    if (messageInput) {
+      window.setTimeout(() => {
+        messageInput.focus()
+      }, 0)
+    }
+
+    const startIterationStatus = (forcedCount = null, forcedBase = null) => {
+      if (!iterationStatus || !iterationStatusLabel || !iterationStatusFill) {
         return
       }
-      event.preventDefault()
-      if (messageForm?.requestSubmit) {
-        messageForm.requestSubmit()
-      } else {
-        messageForm?.submit()
+      const iterationsInput = document.querySelector("[data-iterations-input]")
+      const nextTarget = forcedCount ?? Number(iterationsInput?.value || "1")
+      iterationTarget = Number.isNaN(nextTarget)
+        ? 1
+        : Math.max(1, Math.min(9, nextTarget))
+      iterationBaseCount =
+        forcedBase ??
+        (messagesEl
+          ? messagesEl.querySelectorAll(".message.assistant:not(.is-pending)").length
+          : 0)
+      iterationStatus.hidden = false
+      iterationStatusLabel.textContent =
+        iterationTarget > 0
+          ? `Running 1 of ${iterationTarget}`
+          : "Running 0 of 0"
+      iterationStatusFill.style.width = "0%"
+      if (iterationsInput) iterationsInput.disabled = true
+    }
+
+    updateIterationStatus = () => {
+      if (!iterationStatus || iterationTarget <= 0) return
+      const currentCount = messagesEl
+        ? messagesEl.querySelectorAll(".message.assistant:not(.is-pending)").length
+        : 0
+      const completed = Math.min(
+        iterationTarget,
+        Math.max(0, currentCount - iterationBaseCount)
+      )
+      if (iterationStatusLabel) {
+        if (completed >= iterationTarget) {
+          iterationStatusLabel.textContent = `Completed ${iterationTarget} of ${iterationTarget}`
+        } else {
+          const current = Math.min(iterationTarget, completed + 1)
+          iterationStatusLabel.textContent = `Running ${current} of ${iterationTarget}`
+        }
+      }
+      if (iterationStatusFill) {
+        const percent = (completed / iterationTarget) * 100
+        iterationStatusFill.style.width = `${percent}%`
+      }
+      if (completed >= iterationTarget) {
+        window.setTimeout(() => {
+          if (iterationStatus) iterationStatus.hidden = true
+          const iterationsInput = document.querySelector("[data-iterations-input]")
+          if (iterationsInput) iterationsInput.disabled = false
+          if (chatId) {
+            try {
+              window.localStorage.removeItem(`jetski-iterations:${chatId}`)
+              window.localStorage.removeItem(`jetski-iterations-submit:${chatId}`)
+            } catch {}
+          }
+        }, 800)
+      }
+    }
+
+    iterationCancel?.addEventListener("click", () => {
+      if (!chatId) return
+      fetch("/iterations-cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ chat_id: chatId })
+      }).catch((error) => {
+        console.warn("Iteration cancel failed", error)
+      })
+      if (iterationStatusLabel) {
+        iterationStatusLabel.textContent = "Cancelled"
+      }
+      if (iterationStatusFill) {
+        iterationStatusFill.style.width = "0%"
+      }
+      iterationTarget = 0
+      if (iterationStatus) iterationStatus.hidden = true
+      const iterationsInput = document.querySelector("[data-iterations-input]")
+      if (iterationsInput) iterationsInput.disabled = false
+      if (chatId) {
+        try {
+          window.localStorage.removeItem(`jetski-iterations:${chatId}`)
+          window.localStorage.removeItem(`jetski-iterations-submit:${chatId}`)
+        } catch {}
       }
     })
+
+    const iterationsInput = document.querySelector("[data-iterations-input]")
+
+    messageForm?.addEventListener("submit", () => {
+      const iterationsInput = document.querySelector("[data-iterations-input]")
+      const target = Number(iterationsInput?.value || "1")
+      if (chatId) {
+        try {
+          window.localStorage.setItem(
+            `jetski-iterations-submit:${chatId}`,
+            String(Date.now())
+          )
+          if (target <= 1) {
+            window.localStorage.removeItem(`jetski-iterations:${chatId}`)
+          }
+        } catch {}
+      }
+      if (target > 1) {
+        startIterationStatus(target)
+      }
+    })
+
+    messageForm?.addEventListener("iterations:submit", (event) => {
+      const count = Number(event?.detail?.iterations || 1)
+      if (count > 1) {
+        startIterationStatus(count)
+      }
+    })
+
+    if (chatId) {
+      try {
+        const pendingAssistants = messagesEl.querySelectorAll(
+          ".message.assistant.is-pending"
+        ).length
+        if (pendingAssistants === 0) {
+          window.localStorage.removeItem(`jetski-iterations:${chatId}`)
+          window.localStorage.removeItem(`jetski-iterations-submit:${chatId}`)
+        } else {
+          const stored = window.localStorage.getItem(`jetski-iterations:${chatId}`)
+          const storedSubmit = window.localStorage.getItem(
+            `jetski-iterations-submit:${chatId}`
+          )
+          const submitAt = Number(storedSubmit || "0")
+          const isFresh = submitAt && Date.now() - submitAt < 2 * 60 * 1000
+          if (stored) {
+            const data = JSON.parse(stored)
+            if (isFresh && data?.target && Number(data.target) > 1) {
+              startIterationStatus(
+                Number(data.target || 1),
+                Number(data.baseAssistantCount || 0)
+              )
+              updateIterationStatus()
+            } else if (!isFresh) {
+              window.localStorage.removeItem(`jetski-iterations:${chatId}`)
+              window.localStorage.removeItem(`jetski-iterations-submit:${chatId}`)
+            }
+          }
+        }
+      } catch {}
+    }
 
     messageInput?.addEventListener("keydown", (event) => {
       if (event.key !== "ArrowUp") return
@@ -442,14 +572,11 @@ window.JetskiChat.messages = (() => {
             if (!messageEl) return
             const rawText = messageContent.textContent || ""
             renderMessageContent(messageContent, rawText)
-            console.log("🎨 Ollama image mutation scan", {
-              messageId: messageEl.dataset.jetskiId,
-              rawText
-            })
             updateImageProgress(messageEl, getRawContent(messageContent))
           })
         })
       })
+      updateIterationStatus()
     })
     observer.observe(messagesEl, { childList: true, subtree: true })
     wireStreaming()

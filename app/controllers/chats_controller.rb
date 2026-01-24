@@ -41,12 +41,24 @@ class ChatsController < Jetski::BaseController
     end
     content = params[:content].to_s.strip
     if content != ""
-      Message.create(
+      user_message = Message.create(
         chat_id: @chat.id,
         role: "user",
         content: content
       )
-      Thread.new { Message.call_ollama(@chat.id) }
+      if Message.attributes.include?("iterations_total") &&
+          Message.attributes.include?("iterations_completed")
+        Message.patch(user_message.id, iterations_total: 1, iterations_completed: 0)
+      end
+      base_messages = Message.all.select { |message| message.chat_id == @chat.id }
+        .reject { |message| message.role == "assistant" && message.content.to_s.strip == "" }
+        .map { |message| { role: message.role, content: message.content } }
+      assistant = Message.create(
+        chat_id: @chat.id,
+        role: "assistant",
+        content: ""
+      )
+      Thread.new { Message.call_ollama(@chat.id, messages: base_messages, assistant: assistant) }
       Thread.new { Message.generate_title(@chat.id) }
     end
     redirect_to "/chats/#{@chat.id}"
@@ -81,7 +93,9 @@ class ChatsController < Jetski::BaseController
     return render text: "", status: 404 unless chat
 
     enabled = params[:image_mode].to_s == "1" ? 1 : 0
-    Chat.patch(chat.id, image_mode: enabled)
+    if Chat.attributes.include?("image_mode")
+      Chat.patch(chat.id, image_mode: enabled)
+    end
     render text: "", status: 204
   end
 

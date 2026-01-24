@@ -42,10 +42,24 @@ Why it matters:
 ## Development
 ```sh
 bundle install
-bundle exec jetski server
+bin/dev
 ```
 
 Open `http://localhost:8000` and start a chat.
+
+## Database Schema
+Jetski models read directly from SQLite tables. To share schema changes 
+keep `test.db` ignored and commit `db/schema.sql`.
+
+Regenerate schema:
+```sh
+sqlite3 test.db ".schema" > db/schema.sql
+```
+
+Initialize a fresh DB from schema:
+```sh
+sqlite3 test.db < db/schema.sql
+```
 
 ## Local AI (Ollama + Llama 3.2)
 This app is built to use Ollama running locally with the `llama3.2` model.

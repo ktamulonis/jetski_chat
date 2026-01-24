@@ -169,8 +169,9 @@
     <div class="messages-wrapper">
       <div class="messages" id="jetski-messages">
         <% Array(@messages).each do |message| %>
+          <% pending = message.role == "assistant" && message.content.to_s.strip == "" %>
           <div
-            class="message <%= message.role %>"
+            class="message <%= message.role %><%= pending ? " is-pending" : "" %>"
             data-jetski-model="Message"
             data-jetski-id="<%= message.id %>"
           >
@@ -205,9 +206,17 @@
                       stroke-width="2"
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                    />
-                  </svg>
+                  />
+                </svg>
                 </button>
+                <% if Message.attributes.include?("iterations_total") && message.respond_to?(:iterations_total) && message.iterations_total.to_i > 1 %>
+                  <span class="message-iterations">
+                    Runs
+                    <span data-jetski-attr="iterations_completed"><%= message.iterations_completed.to_i %></span>
+                    /
+                    <span data-jetski-attr="iterations_total"><%= message.iterations_total.to_i %></span>
+                  </span>
+                <% end %>
               <% end %>
             </div>
 
@@ -254,12 +263,41 @@
         value="<%= @chat.respond_to?(:image_mode) && @chat.image_mode.to_i == 1 ? "1" : "0" %>"
         data-image-mode-input
       />
+      <input type="hidden" name="iterations_value" value="1" data-iterations-value />
 
-      <textarea
-        name="content"
-        placeholder="Type your message..."
-        required
-      ></textarea>
+      <div class="message-input-wrap">
+        <textarea
+          name="content"
+          placeholder="Type your message..."
+          autofocus
+          required
+        ></textarea>
+        <button
+          type="button"
+          class="input-menu-toggle"
+          aria-label="Message options"
+          data-input-menu-toggle
+        >
+          <span aria-hidden="true">•••</span>
+        </button>
+        <div class="input-menu" data-input-menu hidden>
+          <label class="iteration-control" title="Repeat the same prompt multiple times. Shortcut: Ctrl+Shift+1-9">
+            <span>Runs</span>
+            <input
+              type="number"
+              min="1"
+              max="9"
+              step="1"
+              value="1"
+              name="iterations"
+              data-iterations-input
+            />
+          </label>
+          <div class="iterations-hint" data-iterations-hint>
+            Tip: Ctrl+Shift+1-9 repeats this prompt.
+          </div>
+        </div>
+      </div>
 
       <div class="send-btn-wrap">
         <button
@@ -285,6 +323,24 @@
         <div class="send-hint" data-send-hint>Tip: Ctrl+Shift+Enter to send</div>
       </div>
     </form>
+
+    <div class="iteration-status" data-iteration-status hidden>
+      <div class="iteration-status-row">
+        <div class="iteration-status-label" data-iteration-status-label>
+          Running 0 of 0
+        </div>
+        <button
+          type="button"
+          class="iteration-cancel"
+          data-iteration-cancel
+        >
+          Cancel
+        </button>
+      </div>
+      <div class="iteration-status-bar">
+        <div class="iteration-status-fill" data-iteration-status-fill></div>
+      </div>
+    </div>
   </main>
 
   <div class="gallery-overlay" data-gallery-overlay hidden>
