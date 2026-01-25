@@ -1,9 +1,9 @@
 GIT
   remote: https://github.com/ktamulonis/jetski.git
-  revision: 56db651117834b7410820b455df64feac2fb17be
+  revision: c1e184572f683792f939b015a075fe96b8aa8f65
   branch: main
   specs:
-    jetski (0.4.9)
+    jetski (0.5.1)
       erb (~> 5.1.2)
       kinship (~> 0.0.1)
       ostruct (~> 0.6.2)

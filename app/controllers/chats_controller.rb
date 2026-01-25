@@ -19,6 +19,7 @@ class ChatsController < Jetski::BaseController
 
   def show
     @chat = Chat.find(params[:id])
+    return redirect_to("/") unless @chat
     @messages = @chat.messages
     @chats = Chat.all
   end
@@ -46,8 +47,8 @@ class ChatsController < Jetski::BaseController
         role: "user",
         content: content
       )
-      if Message.attributes.include?("iterations_total") &&
-          Message.attributes.include?("iterations_completed")
+      if Message.attribute_names.include?(:iterations_total) &&
+          Message.attribute_names.include?(:iterations_completed)
         Message.patch(user_message.id, iterations_total: 1, iterations_completed: 0)
       end
       base_messages = Message.all.select { |message| message.chat_id == @chat.id }
@@ -93,7 +94,7 @@ class ChatsController < Jetski::BaseController
     return render text: "", status: 404 unless chat
 
     enabled = params[:image_mode].to_s == "1" ? 1 : 0
-    if Chat.attributes.include?("image_mode")
+    if Chat.attribute_names.include?(:image_mode)
       Chat.patch(chat.id, image_mode: enabled)
     end
     render text: "", status: 204
@@ -118,6 +119,9 @@ class ChatsController < Jetski::BaseController
     images = []
     applied_count = 0
     last_colorkey_error = nil
+    rembg_missing_logged = false
+    rembg_error_logged = false
+    colorkey_error_logged = false
 
     if message_ids.empty?
       messages = Array(chat.messages).select { |m| m.role == "assistant" }
@@ -152,9 +156,15 @@ class ChatsController < Jetski::BaseController
               frame_paths << output_path
               applied_count += 1
             elsif status == :missing
-              warn "rembg missing; falling back to colorkey"
+              unless rembg_missing_logged
+                warn "rembg missing; falling back to colorkey"
+                rembg_missing_logged = true
+              end
             else
-              warn "rembg error: #{message}"
+              unless rembg_error_logged
+                warn "rembg error: #{message}"
+                rembg_error_logged = true
+              end
             end
           end
 
@@ -174,7 +184,10 @@ class ChatsController < Jetski::BaseController
                 applied_count += 1
               else
                 last_colorkey_error = err
-                warn "ffmpeg colorkey failed for #{path}: #{err}"
+                unless colorkey_error_logged
+                  warn "ffmpeg colorkey failed for #{path}: #{err}"
+                  colorkey_error_logged = true
+                end
                 frame_paths << path
               end
             else

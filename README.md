@@ -48,18 +48,8 @@ bin/dev
 Open `http://localhost:8000` and start a chat.
 
 ## Database Schema
-Jetski models read directly from SQLite tables. To share schema changes 
-keep `test.db` ignored and commit `db/schema.sql`.
-
-Regenerate schema:
-```sh
-sqlite3 test.db ".schema" > db/schema.sql
-```
-
-Initialize a fresh DB from schema:
-```sh
-sqlite3 test.db < db/schema.sql
-```
+Jetski uses model `attributes` to define columns. Migrations are handled by the
+framework; keep `test.db` local and ignored.
 
 ## Local AI (Ollama + Llama 3.2)
 This app is built to use Ollama running locally with the `llama3.2` model.
@@ -78,6 +68,16 @@ ollama run jmorgan/z-image-turbo:fp8
 ```
 
 The app uses the image model when you toggle image mode in the chat header.
+
+## Gallery GIF (optional background removal)
+The gallery GIF exporter can remove backgrounds using `rembg`. If it is not
+available, the app falls back to color-key removal.
+
+Install with pipx (Apple Silicon example):
+```sh
+pipx install --python /opt/homebrew/bin/python3.12 rembg
+pipx inject rembg "onnxruntime==1.23.2"
+```
 
 ## Optional: Background Removal for GIF Export
 High-quality transparent GIF export uses `rembg` when available.

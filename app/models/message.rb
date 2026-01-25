@@ -3,6 +3,8 @@ require "json"
 require "timeout"
 
 class Message < Jetski::Model
+  attributes :chat_id, :role, content: :text,
+    iterations_total: :integer, iterations_completed: :integer
   DEFAULT_CHAT_TITLES = ["New Chat", "Untitled"].freeze
   TITLE_MIN_USER_CHARS = 30
   TITLE_MIN_TOTAL_CHARS = 120

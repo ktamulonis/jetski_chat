@@ -66,11 +66,6 @@ window.JetskiChat.messages = (() => {
       return
     }
 
-    console.log("🎨 Ollama image progress update", {
-      messageId,
-      rawText,
-      fallbackText
-    })
     const tracker = progressModule?.ensure({
       id: trackerId,
       container: messageEl,
@@ -78,7 +73,7 @@ window.JetskiChat.messages = (() => {
       className: "image-progress",
       barClass: "image-progress-bar",
       labelClass: "image-progress-label",
-      debug: true,
+      debug: false,
       logPrefix: "🎨 Ollama image",
       onLabel: (label) => updateMessageLabel(messageEl, label)
     })
@@ -245,11 +240,9 @@ window.JetskiChat.messages = (() => {
   }
 
   const wireStreaming = () => {
-    console.log("🌊 Opening SSE connection:", streamUrl)
     es = new EventSource(streamUrl)
 
     es.onopen = () => {
-      console.log("🌊 SSE OPEN ✅", streamUrl)
     }
 
     es.onerror = (e) => {
@@ -257,8 +250,6 @@ window.JetskiChat.messages = (() => {
     }
 
     es.onmessage = (event) => {
-      console.log("🌊 SSE RAW EVENT:", event.data)
-
       let payload
       try {
         payload = JSON.parse(event.data)
@@ -367,7 +358,9 @@ window.JetskiChat.messages = (() => {
       })
 
       messageForm?.addEventListener("submit", () => {
-        updateToggle(imageModeInput.value === "1")
+        const enabled = imageToggle.classList.contains("is-active")
+        imageModeInput.value = enabled ? "1" : "0"
+        updateToggle(enabled)
       })
     }
 

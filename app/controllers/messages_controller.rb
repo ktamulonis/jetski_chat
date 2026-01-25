@@ -13,15 +13,19 @@ class MessagesController < Jetski::BaseController
       content: content
     )
 
-    has_image_mode = Chat.attributes.include?("image_mode")
-    fallback_mode = has_image_mode ? chat.image_mode : "0"
+    has_image_mode = Chat.attribute_names.include?(:image_mode)
     image_mode_param = params[:image_mode]
-    if !image_mode_param.nil? && has_image_mode
+    if !image_mode_param.nil? && image_mode_param.to_s != "" && has_image_mode
       next_mode = image_mode_param.to_s == "1" ? 1 : 0
+      warn "Image mode submit chat=#{chat.id} param=#{image_mode_param.inspect} next=#{next_mode}"
       Chat.patch(chat.id, image_mode: next_mode)
-      fallback_mode = next_mode
     end
-    image_mode = image_mode_param.nil? ? fallback_mode : image_mode_param
+    image_mode =
+      if image_mode_param.nil? || image_mode_param.to_s == ""
+        has_image_mode ? chat.image_mode : "0"
+      else
+        image_mode_param
+      end
 
     iterations_param = params[:iterations_value]
     iterations_param = params[:iterations] if iterations_param.nil? || iterations_param.to_s == ""
@@ -29,8 +33,8 @@ class MessagesController < Jetski::BaseController
     iterations = 1 if iterations < 1
     iterations = 9 if iterations > 9
     supports_iterations =
-      Message.attributes.include?("iterations_total") &&
-      Message.attributes.include?("iterations_completed")
+      Message.attribute_names.include?(:iterations_total) &&
+      Message.attribute_names.include?(:iterations_completed)
     if supports_iterations
       Message.patch(user_message.id, iterations_total: iterations, iterations_completed: 0)
     end
