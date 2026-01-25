@@ -209,7 +209,7 @@
                   />
                 </svg>
                 </button>
-                <% if Message.attributes.include?("iterations_total") && message.respond_to?(:iterations_total) && message.iterations_total.to_i > 1 %>
+                <% if Message.attribute_names.include?(:iterations_total) && message.respond_to?(:iterations_total) && message.iterations_total.to_i > 1 %>
                   <span class="message-iterations">
                     Runs
                     <span data-jetski-attr="iterations_completed"><%= message.iterations_completed.to_i %></span>

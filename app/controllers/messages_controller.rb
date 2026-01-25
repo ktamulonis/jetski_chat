@@ -5,7 +5,6 @@ class MessagesController < Jetski::BaseController
   route :cancel_iterations, path: "/iterations-cancel", request_method: "POST"
 
   def create
-    Chat.ensure_image_mode_column!
     chat = Chat.find(params[:chat_id])
     content = params[:content].to_s
     user_message = Message.create(
@@ -14,7 +13,7 @@ class MessagesController < Jetski::BaseController
       content: content
     )
 
-    has_image_mode = Chat.attributes.include?("image_mode")
+    has_image_mode = Chat.attribute_names.include?(:image_mode)
     image_mode_param = params[:image_mode]
     if !image_mode_param.nil? && image_mode_param.to_s != "" && has_image_mode
       next_mode = image_mode_param.to_s == "1" ? 1 : 0
@@ -34,8 +33,8 @@ class MessagesController < Jetski::BaseController
     iterations = 1 if iterations < 1
     iterations = 9 if iterations > 9
     supports_iterations =
-      Message.attributes.include?("iterations_total") &&
-      Message.attributes.include?("iterations_completed")
+      Message.attribute_names.include?(:iterations_total) &&
+      Message.attribute_names.include?(:iterations_completed)
     if supports_iterations
       Message.patch(user_message.id, iterations_total: iterations, iterations_completed: 0)
     end
