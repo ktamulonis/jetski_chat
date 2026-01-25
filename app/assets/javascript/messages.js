@@ -367,7 +367,9 @@ window.JetskiChat.messages = (() => {
       })
 
       messageForm?.addEventListener("submit", () => {
-        updateToggle(imageModeInput.value === "1")
+        const enabled = imageToggle.classList.contains("is-active")
+        imageModeInput.value = enabled ? "1" : "0"
+        updateToggle(enabled)
       })
     }
 

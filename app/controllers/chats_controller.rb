@@ -12,12 +12,14 @@ class ChatsController < Jetski::BaseController
   route :gallery_gif, path: "/gallery-gif", request_method: "POST"
 
   def index
+    Chat.ensure_image_mode_column!
     @chats = Chat.all
     @welcome_messages = welcome_messages
     @welcome_message = @welcome_messages.sample || "What can I help you with today?"
   end
 
   def show
+    Chat.ensure_image_mode_column!
     @chat = Chat.find(params[:id])
     @messages = @chat.messages
     @chats = Chat.all
@@ -28,6 +30,7 @@ class ChatsController < Jetski::BaseController
   end
 
   def create
+    Chat.ensure_image_mode_column!
     title_param = params[:title].to_s.strip
     title = title_param == "" ? "New Chat" : title_param
     @chat = Chat.create(title: title)
