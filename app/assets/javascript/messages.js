@@ -16,6 +16,7 @@ window.JetskiChat.messages = (() => {
   let iterationStatusFill = null
   let iterationTarget = 0
   let iterationBaseCount = 0
+  let iterationStatusMessageId = null
   let updateIterationStatus = () => {}
 
   const renderMessageContent = (target, rawText) => {
@@ -299,6 +300,9 @@ window.JetskiChat.messages = (() => {
               messageEl.classList.remove("is-pending")
               updateIterationStatus()
             }
+            if (attr === "iterations_completed" || attr === "iterations_total") {
+              updateIterationStatus()
+            }
             if (attr === "content") {
               updateImageProgress(messageEl, getRawContent(target))
             }
@@ -370,6 +374,42 @@ window.JetskiChat.messages = (() => {
       }, 0)
     }
 
+    const findLatestIterationsMessage = () => {
+      if (!messagesEl) return null
+      const messages = Array.from(messagesEl.querySelectorAll(".message.user"))
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const messageEl = messages[i]
+        const totalEl = messageEl.querySelector(
+          '[data-jetski-attr="iterations_total"]'
+        )
+        if (totalEl && Number(totalEl.textContent || "0") > 1) {
+          return messageEl
+        }
+      }
+      return null
+    }
+
+    const getIterationStatusMessage = () => {
+      if (!messagesEl) return null
+      if (iterationStatusMessageId) {
+        const messageEl = messagesEl.querySelector(
+          `[data-jetski-model="Message"][data-jetski-id="${iterationStatusMessageId}"]`
+        )
+        if (messageEl) return messageEl
+      }
+      return findLatestIterationsMessage()
+    }
+
+    const getIterationCompleted = () => {
+      const messageEl = getIterationStatusMessage()
+      const completedEl = messageEl?.querySelector(
+        '[data-jetski-attr="iterations_completed"]'
+      )
+      if (!completedEl) return null
+      const value = Number(completedEl.textContent || "0")
+      return Number.isNaN(value) ? null : value
+    }
+
     const startIterationStatus = (forcedCount = null, forcedBase = null) => {
       if (!iterationStatus || !iterationStatusLabel || !iterationStatusFill) {
         return
@@ -384,6 +424,8 @@ window.JetskiChat.messages = (() => {
         (messagesEl
           ? messagesEl.querySelectorAll(".message.assistant:not(.is-pending)").length
           : 0)
+      const statusMessage = getIterationStatusMessage()
+      iterationStatusMessageId = statusMessage?.dataset?.jetskiId || null
       iterationStatus.hidden = false
       iterationStatusLabel.textContent =
         iterationTarget > 0
@@ -395,12 +437,16 @@ window.JetskiChat.messages = (() => {
 
     updateIterationStatus = () => {
       if (!iterationStatus || iterationTarget <= 0) return
-      const currentCount = messagesEl
-        ? messagesEl.querySelectorAll(".message.assistant:not(.is-pending)").length
-        : 0
+      const completedFromMessage = getIterationCompleted()
+      const completedFromCount = (() => {
+        const currentCount = messagesEl
+          ? messagesEl.querySelectorAll(".message.assistant:not(.is-pending)").length
+          : 0
+        return Math.max(0, currentCount - iterationBaseCount)
+      })()
       const completed = Math.min(
         iterationTarget,
-        Math.max(0, currentCount - iterationBaseCount)
+        Math.max(0, completedFromMessage ?? completedFromCount)
       )
       if (iterationStatusLabel) {
         if (completed >= iterationTarget) {
