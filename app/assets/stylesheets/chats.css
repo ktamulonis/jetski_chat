@@ -835,6 +835,7 @@ form.message-form textarea {
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 999px;
   z-index: 3;
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .gallery-thumb {
@@ -879,6 +880,7 @@ form.message-form textarea {
   border: none;
   cursor: pointer;
   z-index: 2;
+  transition: opacity 180ms ease;
 }
 
 .gallery-nav.next {
@@ -939,6 +941,23 @@ form.message-form textarea {
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.gallery-fullscreen {
+  position: absolute;
+  top: 24px;
+  right: 72px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e2e8f0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .gallery-meta {
@@ -955,6 +974,16 @@ form.message-form textarea {
   padding: 10px 16px;
   border-radius: 999px;
   z-index: 3;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.gallery-overlay.is-controls-hidden .gallery-timeline,
+.gallery-overlay.is-controls-hidden .gallery-meta,
+.gallery-overlay.is-controls-hidden .gallery-close,
+.gallery-overlay.is-controls-hidden .gallery-fullscreen,
+.gallery-overlay.is-controls-hidden .gallery-nav {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .gallery-speed {

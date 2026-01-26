@@ -26,6 +26,8 @@ window.JetskiChat.gallery = (() => {
   let autoKeyColors = []
   let toleranceInput = null
   let toleranceLabel = null
+  let fullscreenButton = null
+  let controlsHideTimer = null
 
   const refreshImages = () => {
     if (!messagesEl) return
@@ -119,7 +121,8 @@ window.JetskiChat.gallery = (() => {
     wrapper.appendChild(actions)
   }
 
-  const openAt = (index) => {
+  const openAt = (index, options = {}) => {
+    const showOnOpen = options.showControls !== false
     refreshImages()
     if (!imageItems.length) return
     currentIndex = (index + imageItems.length) % imageItems.length
@@ -135,12 +138,16 @@ window.JetskiChat.gallery = (() => {
     updatePickingState()
     updatePreview()
     overlay.hidden = false
+    if (showOnOpen) showControls()
   }
 
   const close = () => {
     if (!overlay) return
     overlay.hidden = true
     setAutoplay(false)
+    setFullscreen(false)
+    overlay.classList.remove("is-controls-hidden")
+    window.clearTimeout(controlsHideTimer)
   }
 
   const deleteMessage = async (messageId) => {
@@ -198,10 +205,69 @@ window.JetskiChat.gallery = (() => {
       autoplayButton.textContent = enabled ? "Stop" : "Autoplay"
     }
     if (!enabled) return
-    autoplayTimer = window.setInterval(
-      () => openAt(currentIndex + 1),
-      autoplayInterval
+    autoplayTimer = window.setInterval(() => {
+      openAt(currentIndex + 1, { showControls: false })
+    }, autoplayInterval)
+  }
+
+  const updateFullscreenButton = (isFullscreen) => {
+    if (!fullscreenButton) return
+    fullscreenButton.setAttribute(
+      "aria-label",
+      isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
     )
+    fullscreenButton.classList.toggle("is-active", isFullscreen)
+  }
+
+  const scheduleControlsHide = () => {
+    if (!overlay || document.fullscreenElement !== overlay) return
+    window.clearTimeout(controlsHideTimer)
+    controlsHideTimer = window.setTimeout(() => {
+      overlay.classList.add("is-controls-hidden")
+    }, 1400)
+  }
+
+  const showControls = () => {
+    if (!overlay) return
+    overlay.classList.remove("is-controls-hidden")
+    scheduleControlsHide()
+  }
+
+  const updateFullscreenState = () => {
+    if (!overlay) return
+    const isFullscreen = document.fullscreenElement === overlay
+    overlay.classList.toggle("is-fullscreen", isFullscreen)
+    updateFullscreenButton(isFullscreen)
+    if (!isFullscreen) {
+      overlay.classList.remove("is-controls-hidden")
+      window.clearTimeout(controlsHideTimer)
+    } else {
+      showControls()
+    }
+  }
+
+  const setFullscreen = (enabled) => {
+    if (!overlay) return
+    if (enabled) {
+      overlay.classList.add("is-fullscreen")
+      showControls()
+      if (overlay.requestFullscreen) {
+        overlay
+          .requestFullscreen()
+          .then(() => {
+            updateFullscreenState()
+          })
+          .catch(() => {
+            overlay.classList.remove("is-fullscreen")
+            updateFullscreenButton(false)
+          })
+      }
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch?.(() => {})
+    } else {
+      overlay.classList.remove("is-fullscreen")
+    }
+    updateFullscreenButton(enabled)
   }
 
   const setActiveThumb = (messageId) => {
@@ -464,11 +530,16 @@ window.JetskiChat.gallery = (() => {
     keyClearButton = overlay?.querySelector("[data-gallery-key-clear]")
     toleranceInput = overlay?.querySelector("[data-gallery-tolerance]")
     toleranceLabel = overlay?.querySelector("[data-gallery-tolerance-label]")
+    fullscreenButton = overlay?.querySelector("[data-gallery-fullscreen]")
 
     closeBtn?.addEventListener("click", close)
     prevBtn?.addEventListener("click", () => openAt(currentIndex - 1))
     nextBtn?.addEventListener("click", () => openAt(currentIndex + 1))
     deleteBtn?.addEventListener("click", deleteCurrent)
+    fullscreenButton?.addEventListener("click", () => {
+      const isFullscreen = document.fullscreenElement === overlay
+      setFullscreen(!isFullscreen)
+    })
     autoplayButton?.addEventListener("click", () => {
       const enabled = !autoplayTimer
       setAutoplay(enabled)
@@ -478,6 +549,9 @@ window.JetskiChat.gallery = (() => {
       if (transparentToggle?.checked && !keyAutoToggle?.checked) return
       openAt(currentIndex + 1)
     })
+
+    overlay?.addEventListener("mousemove", showControls)
+    overlay?.addEventListener("touchstart", showControls)
 
     const updateIntervalLabel = (valueMs) => {
       if (!intervalLabel) return
@@ -662,6 +736,18 @@ window.JetskiChat.gallery = (() => {
       const dragId = event.dataTransfer?.getData("text/plain")
       reorderTimeline(dragId, target.dataset.messageId)
     })
+
+    document.addEventListener("keydown", (event) => {
+      if (overlay?.hidden) return
+      if (event.key === "Escape") {
+        event.preventDefault()
+        close()
+        return
+      }
+      if (overlay?.classList.contains("is-fullscreen")) {
+        showControls()
+      }
+    })
   }
 
   const observeMessages = () => {
@@ -681,6 +767,7 @@ window.JetskiChat.gallery = (() => {
     refreshImages()
     bindEvents()
     observeMessages()
+    document.addEventListener("fullscreenchange", updateFullscreenState)
   }
 
   return { init }
