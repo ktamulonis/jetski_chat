@@ -374,16 +374,42 @@ window.JetskiChat.messages = (() => {
       }, 0)
     }
 
+    const getIterationTotals = (messageEl) => {
+      const totalEl = messageEl?.querySelector(
+        '[data-jetski-attr="iterations_total"]'
+      )
+      const completedEl = messageEl?.querySelector(
+        '[data-jetski-attr="iterations_completed"]'
+      )
+      if (!totalEl || !completedEl) return null
+      const total = Number(totalEl.textContent || "0")
+      const completed = Number(completedEl.textContent || "0")
+      if (Number.isNaN(total) || Number.isNaN(completed)) return null
+      return { total, completed }
+    }
+
     const findLatestIterationsMessage = () => {
       if (!messagesEl) return null
       const messages = Array.from(messagesEl.querySelectorAll(".message.user"))
       for (let i = messages.length - 1; i >= 0; i -= 1) {
         const messageEl = messages[i]
-        const totalEl = messageEl.querySelector(
-          '[data-jetski-attr="iterations_total"]'
-        )
-        if (totalEl && Number(totalEl.textContent || "0") > 1) {
+        const totals = getIterationTotals(messageEl)
+        if (totals && totals.total > 1) {
           return messageEl
+        }
+      }
+      return null
+    }
+
+    const findActiveIterationMessage = () => {
+      if (!messagesEl) return null
+      const messages = Array.from(messagesEl.querySelectorAll(".message.user"))
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const messageEl = messages[i]
+        const totals = getIterationTotals(messageEl)
+        if (!totals || totals.total <= 1) continue
+        if (totals.completed < totals.total) {
+          return { messageEl, totals }
         }
       }
       return null
@@ -402,12 +428,8 @@ window.JetskiChat.messages = (() => {
 
     const getIterationCompleted = () => {
       const messageEl = getIterationStatusMessage()
-      const completedEl = messageEl?.querySelector(
-        '[data-jetski-attr="iterations_completed"]'
-      )
-      if (!completedEl) return null
-      const value = Number(completedEl.textContent || "0")
-      return Number.isNaN(value) ? null : value
+      const totals = getIterationTotals(messageEl)
+      return totals ? totals.completed : null
     }
 
     const startIterationStatus = (forcedCount = null, forcedBase = null) => {
@@ -532,14 +554,15 @@ window.JetskiChat.messages = (() => {
 
     if (chatId) {
       try {
-        const pendingAssistants = messagesEl.querySelectorAll(
-          ".message.assistant.is-pending"
-        ).length
-        if (pendingAssistants === 0) {
-          window.localStorage.removeItem(`jetski-iterations:${chatId}`)
-          window.localStorage.removeItem(`jetski-iterations-submit:${chatId}`)
+        const active = findActiveIterationMessage()
+        if (active) {
+          iterationStatusMessageId = active.messageEl?.dataset?.jetskiId || null
+          startIterationStatus(active.totals.total)
+          updateIterationStatus()
         } else {
-          const stored = window.localStorage.getItem(`jetski-iterations:${chatId}`)
+          const stored = window.localStorage.getItem(
+            `jetski-iterations:${chatId}`
+          )
           const storedSubmit = window.localStorage.getItem(
             `jetski-iterations-submit:${chatId}`
           )
